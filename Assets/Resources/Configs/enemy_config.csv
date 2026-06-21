@@ -1,0 +1,5 @@
+archetype,displayName,spriteResource,spawnWeight,maxHealth,armor,attack,moveSpeed,moveDelay,visionRange,stopDistance,colliderRadius,knockbackDistance,knockbackDuration,accelerationTime,meleeAttackRange,meleeAttackCooldown,meleeRecoverDistance,rangedPreferredDistance,rangedAttackCooldown,rangedProjectileSpeed,rangedProjectileDistance,sentinelSignalRadius,sentinelFleeDuration
+Attacker,Warrior,Arts/Enemies/enemy_triangle_chaser,3,20,0.5,8,2.25,0.12,7,0.25,0.38,2,0.28,0.35,0.72,1.4,2.3,3.6,1.8,7,6,15,1.8
+Sentinel,Scout,Arts/Enemies/enemy_circle_scout,1,20,1,0,3,0.2,20,0.25,0.38,2,0.28,0.35,0.72,1.4,2.3,3.6,1.8,7,6,15,1.8
+Ranged,Ranged,Arts/Enemies/enemy_pentagon_ranged,2,10,0,4,2,0.12,15,3.6,0.38,2,0.28,0.35,0.72,1.4,2.3,3.6,1.8,7,6,15,1.8
+Shield,Shield,Arts/Enemies/enemy_square_guard,2,30,3,2,1.25,0.35,5,0.25,0.46,2,0.28,0.35,0.9,1.75,2.3,3.6,1.8,7,6,15,1.8
