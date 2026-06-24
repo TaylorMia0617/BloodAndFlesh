@@ -29,6 +29,12 @@ public class SimpleEnemyAI : MonoBehaviour
     [SerializeField] private float sentinelSignalRadius = 15f;
     [SerializeField] private float sentinelFleeDuration = 1.8f;
     [SerializeField] private float visionRayStep = 0.08f;
+    [SerializeField] private float hearingRange = 6f;
+    [SerializeField] private float hearingMemorySeconds = 2f;
+    [SerializeField] private float magicSenseRange;
+    [SerializeField] private float magicMemorySeconds = 3f;
+    [SerializeField] private float hostilitySenseRange = 5f;
+    [SerializeField] private bool hostilityIgnoresLineOfSight = true;
 
     private Rigidbody2D body;
     private CharacterStats stats;
@@ -50,6 +56,10 @@ public class SimpleEnemyAI : MonoBehaviour
     private float nextAllySearchTime;
     private bool sentinelHasReported;
     private Transform cachedAlly;
+    private float stunnedUntil;
+    private Color preStunColor = Color.white;
+    private bool stunTintActive;
+    private StunStatusVisual stunVisual;
 
     public EnemyArchetype Archetype => archetype;
 
@@ -84,6 +94,15 @@ public class SimpleEnemyAI : MonoBehaviour
             return;
         }
 
+        if (Time.time < stunnedUntil)
+        {
+            body.velocity = Vector2.zero;
+            nextAttackTime = Mathf.Max(nextAttackTime, stunnedUntil);
+            return;
+        }
+
+        ClearStunTintIfNeeded();
+
         if (Time.time < knockbackUntil)
         {
             return;
@@ -103,8 +122,16 @@ public class SimpleEnemyAI : MonoBehaviour
 
         Vector2 toTarget = (Vector2)target.position - current;
         float distance = toTarget.magnitude;
-        if (distance > visionRange || !HasLineOfSight(current, target.position, distance))
+        bool seesTarget = CanSeeTarget(current, target.position, distance);
+        bool sensesHostility = CanSenseHostility(distance);
+        bool sensesEvent = TrySenseRecentEvent(current, out Vector2 sensedPosition);
+        if (!seesTarget && !sensesHostility)
         {
+            if (sensesEvent)
+            {
+                lastKnownPlayerPosition = sensedPosition;
+            }
+
             MoveTowardLastKnownPosition(current);
             return;
         }
@@ -112,22 +139,17 @@ public class SimpleEnemyAI : MonoBehaviour
         lastKnownPlayerPosition = target.position;
         RecoverMoveSpeed();
         Vector2 direction = distance > 0.001f ? toTarget / distance : Vector2.zero;
-        if (archetype == EnemyArchetype.Sentinel)
+        switch (EnemyBehaviorResolver.Resolve(archetype))
         {
-            MoveSentinel(current, direction, distance, lastKnownPlayerPosition);
-            return;
-        }
-
-        if (archetype == EnemyArchetype.Attacker || archetype == EnemyArchetype.Shield)
-        {
-            MoveMeleeEnemy(current, direction, distance);
-            return;
-        }
-
-        if (archetype == EnemyArchetype.Ranged)
-        {
-            MoveRangedEnemy(current, direction, distance);
-            return;
+            case EnemyBehaviorKind.Sentinel:
+                MoveSentinel(current, direction, distance, lastKnownPlayerPosition);
+                return;
+            case EnemyBehaviorKind.Melee:
+                MoveMeleeEnemy(current, direction, distance);
+                return;
+            case EnemyBehaviorKind.Ranged:
+                MoveRangedEnemy(current, direction, distance);
+                return;
         }
 
         float desiredStop = archetype == EnemyArchetype.Ranged ? Mathf.Max(stopDistance, 3.6f) : stopDistance;
@@ -137,13 +159,11 @@ public class SimpleEnemyAI : MonoBehaviour
         }
 
         float speed = Mathf.Max(0.1f, stats.moveSpeed) * currentSpeedMultiplier;
-        Vector2 next = current + direction * (speed * Time.fixedDeltaTime);
-        body.MovePosition(next);
+        EnemyMovementMotor.Move(body, current, direction, speed);
 
         if (direction.sqrMagnitude > 0.001f)
         {
-            float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg - 90f;
-            transform.rotation = Quaternion.Euler(0f, 0f, angle);
+            EnemyMovementMotor.Face(transform, direction);
         }
     }
 
@@ -173,6 +193,70 @@ public class SimpleEnemyAI : MonoBehaviour
                 return 5f;
             default:
                 return 7f;
+        }
+    }
+
+    public void ApplyStun(float duration)
+    {
+        if (duration <= 0f)
+        {
+            return;
+        }
+
+        stunnedUntil = Mathf.Max(stunnedUntil, Time.time + duration);
+        nextAttackTime = Mathf.Max(nextAttackTime, stunnedUntil);
+        body.velocity = Vector2.zero;
+        if (spriteRenderer == null)
+        {
+            spriteRenderer = GetComponent<SpriteRenderer>();
+        }
+
+        if (spriteRenderer != null && !stunTintActive)
+        {
+            preStunColor = spriteRenderer.color;
+            stunTintActive = true;
+        }
+
+        if (spriteRenderer != null)
+        {
+            spriteRenderer.color = new Color(0.58f, 0.92f, 1f, 1f);
+        }
+
+        EnsureStunVisual();
+        stunVisual.Show(duration);
+    }
+
+    private void ClearStunTintIfNeeded()
+    {
+        if (!stunTintActive || Time.time < stunnedUntil)
+        {
+            return;
+        }
+
+        if (spriteRenderer != null)
+        {
+            spriteRenderer.color = preStunColor;
+        }
+
+        if (stunVisual != null)
+        {
+            stunVisual.Hide();
+        }
+
+        stunTintActive = false;
+    }
+
+    private void EnsureStunVisual()
+    {
+        if (stunVisual != null)
+        {
+            return;
+        }
+
+        stunVisual = GetComponent<StunStatusVisual>();
+        if (stunVisual == null)
+        {
+            stunVisual = gameObject.AddComponent<StunStatusVisual>();
         }
     }
 
@@ -241,6 +325,7 @@ public class SimpleEnemyAI : MonoBehaviour
         rangedProjectileDistance = config.rangedProjectileDistance;
         sentinelSignalRadius = config.sentinelSignalRadius;
         sentinelFleeDuration = config.sentinelFleeDuration;
+        ApplySenseConfig(EnemySenseConfigDatabase.Get(archetype));
 
         if (stats != null)
         {
@@ -251,6 +336,39 @@ public class SimpleEnemyAI : MonoBehaviour
             stats.moveSpeed = config.moveSpeed;
             stats.moveDelay = config.moveDelay;
             stats.ResetStats();
+        }
+    }
+
+    private void ApplySenseConfig(EnemySenseConfig senseConfig)
+    {
+        if (senseConfig == null)
+        {
+            return;
+        }
+
+        if (senseConfig.visual != null && senseConfig.visual.enabled)
+        {
+            visionRange = senseConfig.visual.range;
+            visionRayStep = Mathf.Max(0.02f, senseConfig.visual.rayStep);
+        }
+
+        if (senseConfig.hearing != null)
+        {
+            hearingRange = senseConfig.hearing.enabled ? Mathf.Max(0f, senseConfig.hearing.range) : 0f;
+            hearingMemorySeconds = Mathf.Max(0.1f, senseConfig.hearing.memorySeconds);
+        }
+
+        if (senseConfig.magic != null)
+        {
+            magicSenseRange = senseConfig.magic.enabled ? Mathf.Max(0f, senseConfig.magic.range) : 0f;
+            magicMemorySeconds = Mathf.Max(0.1f, senseConfig.magic.spellCastMemorySeconds);
+        }
+
+        if (senseConfig.hostility != null)
+        {
+            hostilitySenseRange = senseConfig.hostility.enabled ? Mathf.Max(0f, senseConfig.hostility.range) : 0f;
+            hostilityIgnoresLineOfSight = senseConfig.hostility.ignoresLineOfSight;
+            sentinelSignalRadius = Mathf.Max(sentinelSignalRadius, senseConfig.hostility.signalRadius);
         }
     }
 
@@ -358,8 +476,7 @@ public class SimpleEnemyAI : MonoBehaviour
         }
 
         float sentinelSpeed = Mathf.Max(0.1f, stats.moveSpeed) * currentSpeedMultiplier * speedMultiplier;
-        Vector2 next = current + moveDirection.normalized * (sentinelSpeed * Time.fixedDeltaTime);
-        body.MovePosition(next);
+        EnemyMovementMotor.Move(body, current, moveDirection, sentinelSpeed);
         FaceDirection(directionToTarget);
     }
 
@@ -380,7 +497,7 @@ public class SimpleEnemyAI : MonoBehaviour
             }
 
             Vector2 recoverDirection = distance < meleeRecoverDistance ? away * 0.85f + tangent * 0.35f : tangent;
-            body.MovePosition(current + recoverDirection.normalized * (speed * 0.72f * Time.fixedDeltaTime));
+            EnemyMovementMotor.Move(body, current, recoverDirection, speed * 0.72f);
             FaceDirection(directionToTarget);
             if (Time.time >= recoverUntil && Time.time >= nextAttackTime)
             {
@@ -395,7 +512,7 @@ public class SimpleEnemyAI : MonoBehaviour
             return;
         }
 
-        body.MovePosition(current + directionToTarget * (speed * Time.fixedDeltaTime));
+        EnemyMovementMotor.Move(body, current, directionToTarget, speed);
         FaceDirection(directionToTarget);
     }
 
@@ -427,7 +544,7 @@ public class SimpleEnemyAI : MonoBehaviour
 
         if (moveDirection.sqrMagnitude > 0.001f)
         {
-            body.MovePosition(current + moveDirection.normalized * (speed * Time.fixedDeltaTime));
+            EnemyMovementMotor.Move(body, current, moveDirection, speed);
         }
 
         FaceDirection(directionToTarget);
@@ -501,7 +618,7 @@ public class SimpleEnemyAI : MonoBehaviour
         RecoverMoveSpeed();
         Vector2 direction = toKnown.normalized;
         float speed = Mathf.Max(0.1f, stats.moveSpeed) * currentSpeedMultiplier;
-        body.MovePosition(current + direction * (speed * Time.fixedDeltaTime));
+        EnemyMovementMotor.Move(body, current, direction, speed);
         FaceDirection(direction);
     }
 
@@ -585,32 +702,44 @@ public class SimpleEnemyAI : MonoBehaviour
             return true;
         }
 
-        Vector2 direction = (to - from) / distance;
-        float blockedDistance = GetVisionBlockedDistance(from, direction, distance);
-        return blockedDistance >= distance - Mathf.Max(0.04f, visionRayStep * 1.5f);
+        ResolveMapGenerator();
+        return EnemyPerception.HasLineOfSight(mapGenerator, from, to, distance, visionRayStep);
+    }
+
+    private bool CanSeeTarget(Vector2 from, Vector2 to, float distance)
+    {
+        return distance <= visionRange && HasLineOfSight(from, to, distance);
+    }
+
+    private bool CanSenseHostility(float distance)
+    {
+        if (hostilitySenseRange <= 0f || distance > hostilitySenseRange)
+        {
+            return false;
+        }
+
+        if (hostilityIgnoresLineOfSight)
+        {
+            return true;
+        }
+
+        return target != null && HasLineOfSight(body.position, target.position, distance);
+    }
+
+    private bool TrySenseRecentEvent(Vector2 current, out Vector2 sensedPosition)
+    {
+        if (SensoryEventBus.TryGetLatest(SensoryEventType.Sound, current, hearingRange, out sensedPosition))
+        {
+            return true;
+        }
+
+        return SensoryEventBus.TryGetLatest(SensoryEventType.Magic, current, magicSenseRange, out sensedPosition);
     }
 
     private float GetVisionBlockedDistance(Vector2 origin, Vector2 direction, float maxDistance)
     {
         ResolveMapGenerator();
-        if (mapGenerator == null || direction.sqrMagnitude <= 0.001f)
-        {
-            return maxDistance;
-        }
-
-        float step = Mathf.Max(0.02f, visionRayStep);
-        float distance = 0f;
-        while (distance < maxDistance)
-        {
-            distance += step;
-            Vector2 sample = origin + direction.normalized * distance;
-            if (mapGenerator.BlocksVision(mapGenerator.WorldToGrid(sample)))
-            {
-                return Mathf.Max(0f, distance - step);
-            }
-        }
-
-        return maxDistance;
+        return EnemyPerception.GetVisionBlockedDistance(mapGenerator, origin, direction, maxDistance, visionRayStep);
     }
 
     private void ResolveMapGenerator()
@@ -623,13 +752,7 @@ public class SimpleEnemyAI : MonoBehaviour
 
     private bool IsVisionBlocker(Collider2D hit)
     {
-        if (hit.GetComponent<ObstacleHitFeedback>() != null || hit.GetComponentInParent<ObstacleHitFeedback>() != null)
-        {
-            return true;
-        }
-
-        string objectName = hit.gameObject.name;
-        return objectName.StartsWith("Obstacle_") || objectName.StartsWith("Wall_");
+        return EnemyPerception.IsVisionBlocker(hit);
     }
 
     private void EmitRangedImpact(Vector2 point, Vector2 forward)
@@ -754,8 +877,23 @@ public class SimpleEnemyAI : MonoBehaviour
             return false;
         }
 
-        playerStats.ApplyDamage(0f, 0f, stats);
-        return true;
+        Vector2 hitPoint = target.position;
+        Vector2 origin = transform.position;
+        Vector2 hitDirection = hitPoint - origin;
+        DamageContext context = new DamageContext(
+            Time.frameCount,
+            gameObject,
+            stats,
+            WeaponType.Knife,
+            origin,
+            hitPoint,
+            hitDirection,
+            0f,
+            0f,
+            new FeedbackPayload(0.025f, 0.08f, archetype == EnemyArchetype.Shield ? 0.9f : 0.65f, 0.18f, 1.2f, 0f),
+            false);
+        HitResult result = playerStats.ApplyDamage(context);
+        return result.accepted;
     }
 
     private void EmitPlayerMeleeHit(Vector2 hitPoint)

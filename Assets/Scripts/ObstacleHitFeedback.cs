@@ -38,12 +38,19 @@ public class ObstacleHitFeedback : MonoBehaviour, IDamageable
         }
     }
 
-    public void TakeDamage(float amount, float armorPiercing = 0f, Vector2 hitSource = default, CharacterStats attacker = null)
+    public HitResult ApplyDamage(in DamageContext context)
     {
         flashUntil = Time.time + flashDuration;
         if (spriteRenderer != null)
         {
             spriteRenderer.color = hitColor;
         }
+
+        return HitResult.AcceptedNoDamage(context.feedback);
+    }
+
+    public void TakeDamage(float amount, float armorPiercing = 0f, Vector2 hitSource = default, CharacterStats attacker = null)
+    {
+        ApplyDamage(DamageContext.Legacy(amount, armorPiercing, hitSource, attacker));
     }
 }

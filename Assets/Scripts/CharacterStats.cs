@@ -1,4 +1,5 @@
 using UnityEngine;
+using System;
 
 public class CharacterStats : MonoBehaviour
 {
@@ -24,6 +25,11 @@ public class CharacterStats : MonoBehaviour
     public bool IsDamageImmune => Time.time < damageImmuneUntil;
     public bool IsUntargetable => Time.time < untargetableUntil;
 
+    public event Action<float, float> OnHealthChanged;
+    public event Action<float, float> OnManaChanged;
+    public event Action<DamageContext, HitResult> OnDamaged;
+    public event Action<CharacterStats> OnDeath;
+
     private float damageImmuneUntil;
     private float untargetableUntil;
 
@@ -38,18 +44,47 @@ public class CharacterStats : MonoBehaviour
         CurrentMana = usesMana ? Mathf.Max(0f, maxMana) : 0f;
         damageImmuneUntil = 0f;
         untargetableUntil = 0f;
+        OnHealthChanged?.Invoke(CurrentHealth, Mathf.Max(1f, maxHealth));
+        OnManaChanged?.Invoke(CurrentMana, Mathf.Max(0f, maxMana));
     }
 
     public float ApplyDamage(float amount, float armorPiercing = 0f, CharacterStats attacker = null)
     {
+        return ApplyDamageDetailed(amount, armorPiercing, attacker).finalDamage;
+    }
+
+    public DamageResult ApplyDamageDetailed(float amount, float armorPiercing = 0f, CharacterStats attacker = null)
+    {
         if (IsDamageImmune || IsUntargetable)
         {
-            return 0f;
+            return new DamageResult(0f, 0f, 0f, false);
         }
 
         DamageResult result = DamageCalculator.Calculate(attacker, this, amount, armorPiercing);
+        bool wasAlive = IsAlive;
         CurrentHealth = Mathf.Max(0f, CurrentHealth - result.finalDamage);
-        return result.finalDamage;
+        OnHealthChanged?.Invoke(CurrentHealth, Mathf.Max(1f, maxHealth));
+        if (wasAlive && !IsAlive)
+        {
+            OnDeath?.Invoke(this);
+        }
+
+        return result;
+    }
+
+    public HitResult ApplyDamage(in DamageContext context)
+    {
+        if (IsDamageImmune || IsUntargetable)
+        {
+            return HitResult.Rejected;
+        }
+
+        bool wasAlive = IsAlive;
+        DamageResult damage = ApplyDamageDetailed(context.baseDamage, context.armorPiercing, context.attackerStats);
+        bool dealtDamage = damage.finalDamage > 0f;
+        HitResult result = new HitResult(true, dealtDamage, wasAlive && !IsAlive, damage.isCritical, damage.finalDamage, context.feedback);
+        OnDamaged?.Invoke(context, result);
+        return result;
     }
 
     public bool TrySpendMana(float amount)
@@ -66,6 +101,7 @@ public class CharacterStats : MonoBehaviour
         }
 
         CurrentMana = Mathf.Max(0f, CurrentMana - cost);
+        OnManaChanged?.Invoke(CurrentMana, Mathf.Max(0f, maxMana));
         return true;
     }
 
@@ -77,6 +113,7 @@ public class CharacterStats : MonoBehaviour
         }
 
         CurrentMana = Mathf.Min(Mathf.Max(0f, maxMana), CurrentMana + Mathf.Max(0f, amount));
+        OnManaChanged?.Invoke(CurrentMana, Mathf.Max(0f, maxMana));
     }
 
     public float GetManaCrystalValue(int crystalCount = 3)

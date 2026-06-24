@@ -22,4 +22,13 @@ public class WeaponDefinition : ScriptableObject
     public bool sweepLeftToRight = true;
     public Vector2 effectOffset = Vector2.zero;
     public LayerMask targetLayers;
+
+    [Header("Combat Feel")]
+    [Range(0f, 0.15f)] public float hitStopDuration = 0.035f;
+    [Range(0f, 1f)] public float hitStopTimeScale = 0.05f;
+    [Min(0f)] public float knockbackDistance = 1f;
+    [Min(0.01f)] public float knockbackDuration = 0.12f;
+    [Range(0f, 3f)] public float feedbackIntensity = 1.4f;
+    [Range(0f, 2f)] public float cameraShake = 0f;
+    public bool blocksMovementDuringAttack = true;
 }

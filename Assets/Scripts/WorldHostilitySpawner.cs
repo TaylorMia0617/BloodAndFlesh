@@ -59,7 +59,9 @@ public class WorldHostilitySpawner : MonoBehaviour
         }
 
         livingEnemies.RemoveAll(enemy => enemy == null || !enemy.activeInHierarchy);
-        if (EnemyRegistry.LivingCount >= maxStageEnemies)
+        int stageBudget = RunLevelManager.Instance != null ? RunLevelManager.Instance.CurrentEnemyBudget : maxStageEnemies;
+        int effectiveMaxEnemies = Mathf.Min(maxStageEnemies, stageBudget);
+        if (EnemyRegistry.LivingCount >= effectiveMaxEnemies)
         {
             return;
         }

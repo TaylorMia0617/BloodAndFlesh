@@ -39,6 +39,11 @@ public class PlayerInputManager : MonoBehaviour
     private Coroutine knockbackRoutine;
     private float externalKnockbackUntil;
     private float speedMultiplier = 1f;
+    private float stunnedUntil;
+    private StunStatusVisual stunVisual;
+    private PlayerBuffPool buffPool;
+
+    public bool IsStunned => Time.time < stunnedUntil;
 
     private void Awake()
     {
@@ -46,6 +51,7 @@ public class PlayerInputManager : MonoBehaviour
         playerInput = GetComponent<PlayerInput>();
         combatController = GetComponent<PlayerCombatController>();
         stats = GetComponent<CharacterStats>();
+        buffPool = GetComponent<PlayerBuffPool>();
         if (combatController == null)
         {
             combatController = gameObject.AddComponent<PlayerCombatController>();
@@ -124,6 +130,12 @@ public class PlayerInputManager : MonoBehaviour
             return;
         }
 
+        if (IsStunned)
+        {
+            StopMovement(PlayerMoveState.AttackLocked);
+            return;
+        }
+
         if (Time.time < externalKnockbackUntil)
         {
             return;
@@ -180,7 +192,7 @@ public class PlayerInputManager : MonoBehaviour
 
     private void ApplyMoveInput(Vector2 inputDir)
     {
-        if (!canMove || (combatController != null && combatController.BlocksMovement))
+        if (!canMove || IsStunned || (combatController != null && combatController.BlocksMovement))
         {
             return;
         }
@@ -260,6 +272,42 @@ public class PlayerInputManager : MonoBehaviour
     public void SetTemporarySpeedMultiplier(float multiplier, float duration)
     {
         StartCoroutine(TemporarySpeedMultiplierRoutine(Mathf.Max(0.01f, multiplier), Mathf.Max(0f, duration)));
+    }
+
+    public void ApplyStun(float duration)
+    {
+        if (duration <= 0f)
+        {
+            return;
+        }
+
+        stunnedUntil = Mathf.Max(stunnedUntil, Time.time + duration);
+        StopMovement(PlayerMoveState.AttackLocked);
+        EnsureStunVisual();
+        stunVisual.Show(duration);
+        if (buffPool == null)
+        {
+            buffPool = GetComponent<PlayerBuffPool>();
+        }
+
+        if (buffPool != null)
+        {
+            buffPool.AddDebuff("stun", "Stun", Resources.Load<Sprite>("Arts/UI/Status/status_stun"), duration);
+        }
+    }
+
+    private void EnsureStunVisual()
+    {
+        if (stunVisual != null)
+        {
+            return;
+        }
+
+        stunVisual = GetComponent<StunStatusVisual>();
+        if (stunVisual == null)
+        {
+            stunVisual = gameObject.AddComponent<StunStatusVisual>();
+        }
     }
 
     private bool TryGetPointerWorldPosition(out Vector2 worldPosition)

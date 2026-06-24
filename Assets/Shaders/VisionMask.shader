@@ -13,6 +13,7 @@ Shader "TopDownRogue/VisionMask"
         _Aspect ("Aspect", Float) = 1.777778
         _VisionRadius ("Vision Radius", Float) = 5
         _Feather ("Feather", Float) = 0.75
+        _HealthDarkness ("Health Darkness", Float) = 0
     }
 
     SubShader
@@ -42,6 +43,7 @@ Shader "TopDownRogue/VisionMask"
             float _Aspect;
             float _VisionRadius;
             float _Feather;
+            float _HealthDarkness;
 
             struct appdata
             {
@@ -84,7 +86,10 @@ Shader "TopDownRogue/VisionMask"
                     float occlusion = smoothstep(rayDistance - 0.08, rayDistance + max(_Feather * 0.25, 0.03), distanceToPlayer);
                     alpha = max(alpha, occlusion);
                 }
-                return lerp(sceneColor, _MaskColor, alpha * _MaskColor.a);
+                fixed4 masked = lerp(sceneColor, _MaskColor, alpha * _MaskColor.a);
+                float visibleDarkness = saturate(_HealthDarkness) * (1.0 - alpha);
+                masked.rgb = lerp(masked.rgb, 0, visibleDarkness);
+                return masked;
             }
             ENDCG
         }

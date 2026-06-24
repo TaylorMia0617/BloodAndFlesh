@@ -1,2 +1,30 @@
 /.agents
 /.vscode
+
+# Unity generated folders
+/Library/
+/Temp/
+/Obj/
+/Logs/
+/UserSettings/
+/MemoryCaptures/
+/Recordings/
+
+# Unity generated project files
+/*.csproj
+/*.sln
+/*.suo
+/*.user
+/*.userprefs
+/*.pidb
+/*.booproj
+
+# IDE / OS noise
+/.vs/
+/.idea/
+.DS_Store
+Thumbs.db
+
+# Builds
+/Build/
+/Builds/

@@ -7,6 +7,7 @@ using UnityEngine;
 [RequireComponent(typeof(PolygonCollider2D))]
 public class AttackWaveEffect : MonoBehaviour
 {
+    private static int nextAttackId = 1;
     private static readonly int ProgressId = Shader.PropertyToID("_Progress");
     private static readonly int ColorId = Shader.PropertyToID("_Color");
     private static readonly int ShapeId = Shader.PropertyToID("_Shape");
@@ -33,6 +34,7 @@ public class AttackWaveEffect : MonoBehaviour
     private bool followAnchorPosition;
     private bool attachedWeaponBodyCollider;
     private bool renderAttachedVisual;
+    private int activeAttackId;
     private float attachedColliderBottom;
     private float attachedColliderTop;
     private float attachedColliderHalfWidth;
@@ -65,6 +67,7 @@ public class AttackWaveEffect : MonoBehaviour
         meshRenderer.enabled = true;
         waveCollider.enabled = false;
         activeWeapon = null;
+        activeAttackId = nextAttackId++;
         attachedWeaponBodyCollider = false;
         renderAttachedVisual = true;
         damagedColliders.Clear();
@@ -73,16 +76,17 @@ public class AttackWaveEffect : MonoBehaviour
 
         Vector2 forward = direction.sqrMagnitude > 0.001f ? direction.normalized : Vector2.up;
         Vector2 side = new Vector2(-forward.y, forward.x);
-        float range = GetVisualRange(weapon, visualMultiplier);
-        float width = GetVisualWidth(weapon, visualMultiplier);
+        AttackVisualProfile profile = AttackVisualProfileResolver.Resolve(weapon, visualMultiplier);
+        float range = profile.range;
+        float width = profile.width;
         float angle = Mathf.Atan2(forward.y, forward.x) * Mathf.Rad2Deg - 90f;
         Vector2 effectOrigin = origin + forward * weapon.effectOffset.x + side * weapon.effectOffset.y;
-        WeaponType visualType = weapon.useSweepArc ? WeaponType.Knife : weapon.weaponType;
+        WeaponType visualType = profile.visualType;
 
         transform.position = effectOrigin;
         transform.rotation = Quaternion.Euler(0f, 0f, angle);
         ConfigureMesh(weapon, visualType, width, range);
-        ConfigureMaterial(visualType, visualMultiplier);
+        ConfigureMaterial(profile);
         ConfigureCollider(weapon, visualType, width, range);
         ConfigureParticleDefaults(visualType);
         gameObject.SetActive(true);
@@ -103,6 +107,7 @@ public class AttackWaveEffect : MonoBehaviour
 
         waveCollider.enabled = false;
         activeWeapon = null;
+        activeAttackId = nextAttackId++;
         attachedWeaponBodyCollider = useWeaponBodyCollider;
         renderAttachedVisual = renderVisual;
         damagedColliders.Clear();
@@ -111,12 +116,13 @@ public class AttackWaveEffect : MonoBehaviour
 
         followAnchor = anchor;
         followAnchorPosition = followPosition;
-        float range = GetVisualRange(weapon, visualMultiplier);
-        float width = GetVisualWidth(weapon, visualMultiplier);
-        WeaponType visualType = weapon.useSweepArc ? WeaponType.Knife : weapon.weaponType;
+        AttackVisualProfile profile = AttackVisualProfileResolver.Resolve(weapon, visualMultiplier);
+        float range = profile.range;
+        float width = profile.width;
+        WeaponType visualType = profile.visualType;
         SyncToFollowAnchor();
         ConfigureMesh(weapon, visualType, width, range);
-        ConfigureMaterial(visualType, visualMultiplier);
+        ConfigureMaterial(profile);
         ConfigureCollider(weapon, visualType, width, range);
         meshRenderer.enabled = renderAttachedVisual;
         ConfigureParticleDefaults(visualType);
@@ -127,9 +133,9 @@ public class AttackWaveEffect : MonoBehaviour
     private IEnumerator PlayRoutine(WeaponDefinition weapon, LayerMask targetLayers, Vector2 origin, Vector2 direction, float range)
     {
         SetProgress(0f);
-        float windup = GetWindupTime(weapon);
-        float activeTime = GetActiveTime(weapon);
-        float fadeTime = GetFadeTime(weapon);
+        float windup = WeaponTiming.GetWindup(weapon);
+        float activeTime = WeaponTiming.GetActive(weapon);
+        float fadeTime = WeaponTiming.GetRecovery(weapon);
         activeWeapon = weapon;
         activeTargetLayers = targetLayers;
         damagedColliders.Clear();
@@ -142,7 +148,7 @@ public class AttackWaveEffect : MonoBehaviour
             projectileStart = origin + direction * 0.45f;
             projectileDirection = direction;
             projectileDistance = range;
-            projectileRadius = Mathf.Max(0.12f, GetVisualWidth(weapon, 1f) * 0.45f);
+            projectileRadius = Mathf.Max(0.12f, AttackVisualProfileResolver.Resolve(weapon, 1f).width * 0.45f);
             projectileHitSolid = false;
             transform.position = projectileStart;
         }
@@ -188,9 +194,9 @@ public class AttackWaveEffect : MonoBehaviour
         activeTargetLayers = targetLayers;
         damagedColliders.Clear();
 
-        float windup = GetWindupTime(weapon);
-        float activeTime = GetActiveTime(weapon);
-        float fadeTime = GetFadeTime(weapon);
+        float windup = WeaponTiming.GetWindup(weapon);
+        float activeTime = WeaponTiming.GetActive(weapon);
+        float fadeTime = WeaponTiming.GetRecovery(weapon);
 
         waveCollider.enabled = false;
         float elapsed = 0f;
@@ -377,21 +383,48 @@ public class AttackWaveEffect : MonoBehaviour
                     attackerStats = GetComponentInParent<CharacterStats>();
                 }
 
+                Vector2 hitPoint = GetHitPoint(hit);
+                Vector2 origin = transform.position;
+                Vector2 hitDirection = hitPoint - origin;
+                if (hitDirection.sqrMagnitude < 0.001f)
+                {
+                    hitDirection = transform.up;
+                }
+
                 bool spearTipHit = IsAttachedSpearTipHit(hit, weapon);
                 float damage = weapon.damage * GetAttachedHitDamageMultiplier(hit, weapon);
-                damageable.TakeDamage(damage, weapon.armorPiercing, transform.position, attackerStats);
+                DamageContext context = new DamageContext(
+                    activeAttackId,
+                    attackerStats != null ? attackerStats.gameObject : gameObject,
+                    attackerStats,
+                    weapon.weaponType,
+                    origin,
+                    hitPoint,
+                    hitDirection,
+                    damage,
+                    weapon.armorPiercing,
+                    FeedbackPayload.FromWeapon(weapon));
+                HitResult result = damageable.ApplyDamage(context);
+                if (!result.accepted)
+                {
+                    continue;
+                }
+
                 damagedColliders.Add(hit);
+                CombatFeedbackSystem _ = CombatFeedbackSystem.Instance;
+                CombatFeedbackBus.PublishHit(context, result);
+
                 if (weapon.weaponType == WeaponType.Sword)
                 {
-                    EmitSwordHitBurst(GetHitPoint(hit));
+                    EmitSwordHitBurst(hitPoint);
                 }
                 else if (weapon.weaponType == WeaponType.Spear && weapon.useSweepArc)
                 {
-                    EmitSpearSweepHitBurst(GetHitPoint(hit), spearTipHit);
+                    EmitSpearSweepHitBurst(hitPoint, spearTipHit);
                 }
                 else
                 {
-                    EmitGenericHitBurst(GetHitPoint(hit), weapon.weaponType);
+                    EmitGenericHitBurst(hitPoint, weapon.weaponType);
                 }
                 return true;
             }
@@ -773,7 +806,7 @@ public class AttackWaveEffect : MonoBehaviour
         mesh.RecalculateBounds();
     }
 
-    private void ConfigureMaterial(WeaponType weaponType, float visualMultiplier)
+    private void ConfigureMaterial(AttackVisualProfile profile)
     {
         if (material == null)
         {
@@ -782,12 +815,12 @@ public class AttackWaveEffect : MonoBehaviour
             material.name = "RuntimeAttackWaveMaterial";
         }
 
-        Color color = weaponType == WeaponType.Spell ? new Color(0.66f, 0.84f, 1f, 0.98f) : new Color(1f, 0.9f, 0.58f, 0.96f);
+        Color color = profile.visualType == WeaponType.Spell ? new Color(0.66f, 0.84f, 1f, 0.98f) : new Color(1f, 0.9f, 0.58f, 0.96f);
         material.SetColor(ColorId, color);
-        material.SetFloat(ShapeId, GetShapeValue(weaponType));
+        material.SetFloat(ShapeId, profile.shape);
         material.SetFloat(FadeId, 0f);
         material.SetFloat(ExpandId, 0f);
-        material.SetFloat(ThicknessId, GetThickness(weaponType, visualMultiplier));
+        material.SetFloat(ThicknessId, profile.thickness);
         material.SetFloat(SoftnessId, 0.08f);
         meshRenderer.sharedMaterial = material;
         meshRenderer.sortingOrder = 35;
@@ -1255,119 +1288,4 @@ public class AttackWaveEffect : MonoBehaviour
         vfxParticles.Emit(emitParams, 1);
     }
 
-    private float GetVisualRange(WeaponDefinition weapon, float visualMultiplier)
-    {
-        switch (weapon.weaponType)
-        {
-            case WeaponType.Knife:
-                return Mathf.Max(0.78f, weapon.attackRange * 0.82f * visualMultiplier);
-            case WeaponType.Spear when weapon.useSweepArc:
-                return Mathf.Max(1.45f, weapon.attackRange * 1.05f * visualMultiplier);
-            case WeaponType.Sword:
-                return Mathf.Max(1.7f, weapon.attackRange * 1.35f * visualMultiplier);
-            case WeaponType.Spear:
-                return Mathf.Max(2.65f, weapon.attackRange * 1.58f * visualMultiplier);
-            case WeaponType.Spell:
-                return Mathf.Max(4.1f, weapon.attackRange * 2.05f * visualMultiplier);
-            default:
-                return Mathf.Max(0.2f, weapon.attackRange * visualMultiplier);
-        }
-    }
-
-    private float GetVisualWidth(WeaponDefinition weapon, float visualMultiplier)
-    {
-        switch (weapon.weaponType)
-        {
-            case WeaponType.Knife:
-                return Mathf.Max(0.82f, weapon.attackRadius * 2.35f * visualMultiplier);
-            case WeaponType.Spear when weapon.useSweepArc:
-                return Mathf.Max(1.7f, weapon.attackRadius * 3.8f * visualMultiplier);
-            case WeaponType.Sword:
-                return Mathf.Max(1.08f, weapon.attackRadius * 2.75f * visualMultiplier);
-            case WeaponType.Spear:
-                return Mathf.Max(0.52f, weapon.attackRadius * 1.42f * visualMultiplier);
-            case WeaponType.Spell:
-                return Mathf.Max(0.88f, weapon.attackRadius * 1.32f * visualMultiplier);
-            default:
-                return Mathf.Max(0.25f, weapon.attackRadius * 2.6f * visualMultiplier);
-        }
-    }
-
-    private float GetWindupTime(WeaponDefinition weapon)
-    {
-        if (weapon.weaponType == WeaponType.Sword)
-        {
-            return 0.035f;
-        }
-
-        if (weapon.weaponType == WeaponType.Spell)
-        {
-            return Mathf.Max(0.05f, weapon.windup * 0.7f);
-        }
-
-        return Mathf.Max(0.01f, weapon.windup);
-    }
-
-    private float GetActiveTime(WeaponDefinition weapon)
-    {
-        switch (weapon.weaponType)
-        {
-            case WeaponType.Knife:
-                return 0.1f;
-            case WeaponType.Sword:
-                return 0.05f;
-            case WeaponType.Spear when weapon.useSweepArc:
-                return 0.42f;
-            case WeaponType.Spear:
-                return 0.15f;
-            case WeaponType.Spell:
-                return 0.48f;
-            default:
-                return Mathf.Max(0.08f, Mathf.Min(0.18f, weapon.recovery + 0.04f));
-        }
-    }
-
-    private float GetFadeTime(WeaponDefinition weapon)
-    {
-        if (weapon.weaponType == WeaponType.Sword)
-        {
-            return 0.035f;
-        }
-
-        return weapon.weaponType == WeaponType.Spell ? 0.24f : Mathf.Max(0.04f, weapon.recovery * 0.45f);
-    }
-
-    private float GetShapeValue(WeaponType weaponType)
-    {
-        switch (weaponType)
-        {
-            case WeaponType.Knife:
-                return 0f;
-            case WeaponType.Sword:
-                return 1f;
-            case WeaponType.Spear:
-                return 2f;
-            case WeaponType.Spell:
-                return 3f;
-            default:
-                return 0f;
-        }
-    }
-
-    private float GetThickness(WeaponType weaponType, float visualMultiplier)
-    {
-        switch (weaponType)
-        {
-            case WeaponType.Knife:
-                return Mathf.Lerp(0.05f, 0.08f, Mathf.Clamp01(visualMultiplier - 1f));
-            case WeaponType.Sword:
-                return 0.26f;
-            case WeaponType.Spear:
-                return 0.12f;
-            case WeaponType.Spell:
-                return 0.22f;
-            default:
-                return 0.14f;
-        }
-    }
 }

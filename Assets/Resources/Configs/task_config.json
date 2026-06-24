@@ -1,0 +1,59 @@
+{
+  "tasks": [
+    {
+      "id": "task_kill_attacker_01",
+      "name": "清理战士",
+      "description": "安全屋附近的战士敌人正在聚集。进入下一关后削减他们的数量。",
+      "rarity": "common",
+      "rewards": [
+        { "type": "currency", "id": "coin", "amount": 80 },
+        { "type": "material", "id": "iron_shard", "amount": 2 }
+      ],
+      "failurePenalties": [
+        { "type": "worldHostility", "mode": "add", "value": 0.1 }
+      ],
+      "completionConditions": [
+        { "type": "killEnemy", "enemyArchetype": "Attacker", "count": 6 }
+      ],
+      "failureConditions": [
+        { "type": "stageEndedWithoutCompletion" }
+      ]
+    },
+    {
+      "id": "task_gather_crystal_01",
+      "name": "收集魔晶",
+      "description": "记录员需要不稳定魔晶来校准安全屋的供能装置。",
+      "rarity": "common",
+      "rewards": [
+        { "type": "currency", "id": "coin", "amount": 60 },
+        { "type": "buffChoice", "id": "safehouse_minor_buff", "amount": 1 }
+      ],
+      "failurePenalties": [],
+      "completionConditions": [
+        { "type": "collectItem", "itemId": "unstable_crystal", "count": 3 }
+      ],
+      "failureConditions": [
+        { "type": "playerDeath" }
+      ]
+    },
+    {
+      "id": "task_scout_sentinel_01",
+      "name": "阻断侦察",
+      "description": "侦察兵会扩散玩家的位置。优先处理它们，能让下一段路更安静。",
+      "rarity": "rare",
+      "rewards": [
+        { "type": "currency", "id": "coin", "amount": 120 },
+        { "type": "shopDiscount", "id": "safehouse_shop", "value": 0.15 }
+      ],
+      "failurePenalties": [
+        { "type": "spawnModifier", "id": "extra_sentinel_patrol", "amount": 1 }
+      ],
+      "completionConditions": [
+        { "type": "killEnemy", "enemyArchetype": "Sentinel", "count": 2 }
+      ],
+      "failureConditions": [
+        { "type": "sentinelAlarmCount", "count": 3 }
+      ]
+    }
+  ]
+}

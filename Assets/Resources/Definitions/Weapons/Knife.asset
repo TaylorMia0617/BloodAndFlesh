@@ -25,7 +25,7 @@ MonoBehaviour:
   description: Long blade crescent slash.
   equippedOffset: {x: 0.42, y: -0.1}
   equippedScale: 0.6
-  swingAngle: 118
+  swingAngle: 162
   thrustDistance: 0.34
   useSweepArc: 0
   sweepLeftToRight: 1
@@ -33,3 +33,10 @@ MonoBehaviour:
   targetLayers:
     serializedVersion: 2
     m_Bits: 4294967291
+  hitStopDuration: 0.035
+  hitStopTimeScale: 0.05
+  knockbackDistance: 1
+  knockbackDuration: 0.12
+  feedbackIntensity: 1.4
+  cameraShake: 0
+  blocksMovementDuringAttack: 1

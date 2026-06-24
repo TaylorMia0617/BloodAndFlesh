@@ -422,8 +422,10 @@ MonoBehaviour:
   weaponPivot: {fileID: 0}
   weaponRenderer: {fileID: 0}
   enchantRenderer: {fileID: 0}
+  outlineRenderers: []
+  weaponTrail: {fileID: 0}
   sortingOrder: 34
-  showWeaponSpriteInWorld: 1
+  showWeaponSpriteInWorld: 0
   bladeAnchor: {fileID: 0}
   tipAnchor: {fileID: 0}
 --- !u!114 &503149035220133867

@@ -1,0 +1,32 @@
+{
+  "senses": [
+    {
+      "archetype": 0,
+      "visual": { "enabled": true, "range": 7.0, "rayStep": 0.08, "blockedByWalls": true },
+      "hearing": { "enabled": true, "range": 6.0, "memorySeconds": 2.0, "sprintNoiseMultiplier": 1.6, "attackNoiseMultiplier": 2.2 },
+      "magic": { "enabled": false, "range": 0.0, "spellCastMemorySeconds": 3.0, "detectsShields": false },
+      "hostility": { "enabled": true, "range": 5.0, "ignoresLineOfSight": true, "memorySeconds": 1.5, "signalRadius": 15.0 }
+    },
+    {
+      "archetype": 1,
+      "visual": { "enabled": true, "range": 20.0, "rayStep": 0.08, "blockedByWalls": true },
+      "hearing": { "enabled": true, "range": 10.0, "memorySeconds": 3.0, "sprintNoiseMultiplier": 1.8, "attackNoiseMultiplier": 2.5 },
+      "magic": { "enabled": true, "range": 12.0, "spellCastMemorySeconds": 4.0, "detectsShields": true },
+      "hostility": { "enabled": true, "range": 12.0, "ignoresLineOfSight": true, "memorySeconds": 2.5, "signalRadius": 18.0 }
+    },
+    {
+      "archetype": 2,
+      "visual": { "enabled": true, "range": 15.0, "rayStep": 0.08, "blockedByWalls": true },
+      "hearing": { "enabled": true, "range": 7.0, "memorySeconds": 2.2, "sprintNoiseMultiplier": 1.6, "attackNoiseMultiplier": 2.2 },
+      "magic": { "enabled": true, "range": 8.0, "spellCastMemorySeconds": 3.0, "detectsShields": false },
+      "hostility": { "enabled": true, "range": 6.0, "ignoresLineOfSight": true, "memorySeconds": 1.8, "signalRadius": 15.0 }
+    },
+    {
+      "archetype": 3,
+      "visual": { "enabled": true, "range": 5.0, "rayStep": 0.08, "blockedByWalls": true },
+      "hearing": { "enabled": true, "range": 5.0, "memorySeconds": 2.0, "sprintNoiseMultiplier": 1.5, "attackNoiseMultiplier": 2.0 },
+      "magic": { "enabled": false, "range": 0.0, "spellCastMemorySeconds": 3.0, "detectsShields": false },
+      "hostility": { "enabled": true, "range": 4.0, "ignoresLineOfSight": true, "memorySeconds": 1.5, "signalRadius": 15.0 }
+    }
+  ]
+}

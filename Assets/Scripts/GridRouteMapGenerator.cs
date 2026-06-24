@@ -19,7 +19,7 @@ public class GridRouteMapGenerator : MonoBehaviour
     [SerializeField] private Sprite safeDoorSprite;
 
     [Header("Enemy Spawns")]
-    [SerializeField] private int enemySpawnCount = 8;
+    [SerializeField] private int enemySpawnCount = 6;
     [SerializeField] private float enemySpawnMinDistanceFromPlayer = 12f;
     [SerializeField] private float hostilitySpawnInterval = 3.5f;
     [SerializeField] private Sprite[] enemySprites;
@@ -45,6 +45,7 @@ public class GridRouteMapGenerator : MonoBehaviour
 
     public void GenerateMap()
     {
+        ApplyStageConfig();
         LoadDefaultSprites();
         ClearMap();
         EnemyRegistry.Clear();
@@ -99,6 +100,42 @@ public class GridRouteMapGenerator : MonoBehaviour
         BuildEnemySpawnCells(road);
         SpawnPrototypeEnemies();
         ConfigureWorldHostilitySpawner();
+    }
+
+    private void ApplyStageConfig()
+    {
+        StageConfig config = RunLevelManager.Instance != null ? RunLevelManager.Instance.CurrentStageConfig : null;
+        if (config == null)
+        {
+            return;
+        }
+
+        width = Mathf.Max(12, config.mapWidth);
+        height = Mathf.Max(12, config.mapHeight);
+        cellSize = Mathf.Max(0.25f, config.cellSize);
+        corridorHalfWidth = Mathf.Max(1, config.corridorHalfWidth);
+        branchCount = Mathf.Max(0, config.branchCount);
+        roomCount = Mathf.Max(0, config.roomCount);
+        enemySpawnCount = Mathf.Max(0, config.initialEnemySpawnCount);
+        enemySpawnMinDistanceFromPlayer = Mathf.Max(0f, config.enemySpawnMinDistanceFromPlayer);
+        hostilitySpawnInterval = Mathf.Max(0.1f, config.hostilitySpawnInterval);
+
+        roadSprite = LoadSpriteOrKeep(config.roadSpriteResource, roadSprite);
+        dangerSprite = LoadSpriteOrKeep(config.dangerSpriteResource, dangerSprite);
+        wallSprite = LoadSpriteOrKeep(config.wallSpriteResource, wallSprite);
+        safeRoomSprite = LoadSpriteOrKeep(config.safeRoomSpriteResource, safeRoomSprite);
+        safeDoorSprite = LoadSpriteOrKeep(config.safeDoorSpriteResource, safeDoorSprite);
+    }
+
+    private Sprite LoadSpriteOrKeep(string resourcePath, Sprite fallback)
+    {
+        if (string.IsNullOrEmpty(resourcePath))
+        {
+            return fallback;
+        }
+
+        Sprite sprite = Resources.Load<Sprite>(resourcePath);
+        return sprite != null ? sprite : fallback;
     }
 
     private bool[,] BuildCorridorNetwork()
@@ -296,8 +333,14 @@ public class GridRouteMapGenerator : MonoBehaviour
             return;
         }
 
+        int requestedCount = enemySpawnCount;
+        if (RunLevelManager.Instance != null)
+        {
+            requestedCount = Mathf.Min(requestedCount, RunLevelManager.Instance.CurrentInitialEnemySpawnCount);
+        }
+
         List<Vector2Int> candidates = new List<Vector2Int>(enemySpawnCells);
-        int count = Mathf.Min(enemySpawnCount, candidates.Count);
+        int count = Mathf.Min(requestedCount, candidates.Count);
         for (int i = 0; i < count; i++)
         {
             int index = Random.Range(0, candidates.Count);

@@ -9,11 +9,14 @@ public class PlayerVisionMask : MonoBehaviour
     [SerializeField] private float feather = 0.75f;
     [SerializeField] private int rayCount = 192;
     [SerializeField] private float rayStep = 0.08f;
+    [SerializeField] private float lowHealthDarknessPerMissingPercent = 0.005f;
+    [SerializeField] private float maxHealthDarkness = 0.5f;
 
     private Camera targetCamera;
     private Material maskMaterial;
     private Texture2D rayDistanceTexture;
     private Color[] rayDistancePixels;
+    private float healthRatio = 1f;
 
     private void Awake()
     {
@@ -49,6 +52,7 @@ public class PlayerVisionMask : MonoBehaviour
         maskMaterial.SetFloat("_Aspect", targetCamera.aspect);
         maskMaterial.SetFloat("_VisionRadius", visionRadius);
         maskMaterial.SetFloat("_Feather", feather);
+        maskMaterial.SetFloat("_HealthDarkness", CalculateHealthDarkness());
         Graphics.Blit(source, destination, maskMaterial);
     }
 
@@ -60,6 +64,11 @@ public class PlayerVisionMask : MonoBehaviour
     public void SetMapGenerator(GridRouteMapGenerator newMapGenerator)
     {
         mapGenerator = newMapGenerator;
+    }
+
+    public void SetHealthRatio(float ratio)
+    {
+        healthRatio = Mathf.Clamp01(ratio);
     }
 
     private void EnsureMaterial()
@@ -147,5 +156,11 @@ public class PlayerVisionMask : MonoBehaviour
         }
 
         return maxDistance;
+    }
+
+    private float CalculateHealthDarkness()
+    {
+        float missingPercent = (1f - healthRatio) * 100f;
+        return Mathf.Clamp(missingPercent * lowHealthDarknessPerMissingPercent, 0f, maxHealthDarkness);
     }
 }

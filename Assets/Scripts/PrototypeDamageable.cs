@@ -44,16 +44,19 @@ public class PrototypeDamageable : MonoBehaviour, IDamageable
         }
     }
 
-    public void TakeDamage(float amount, float armorPiercing = 0f, Vector2 hitSource = default, CharacterStats attacker = null)
+    public HitResult ApplyDamage(in DamageContext context)
     {
+        bool wasAlive = stats != null ? stats.IsAlive : currentHealth > 0f;
+        DamageResult damageResult = new DamageResult(context.baseDamage, context.baseDamage, context.baseDamage, false);
         if (stats != null)
         {
-            stats.ApplyDamage(amount, armorPiercing, attacker);
+            HitResult statResult = stats.ApplyDamage(context);
             currentHealth = stats.CurrentHealth;
+            damageResult = new DamageResult(context.baseDamage, statResult.finalDamage, statResult.finalDamage, statResult.critical);
         }
         else
         {
-            currentHealth -= amount;
+            currentHealth = Mathf.Max(0f, currentHealth - context.baseDamage);
         }
 
         if (spriteRenderer != null)
@@ -62,14 +65,15 @@ public class PrototypeDamageable : MonoBehaviour, IDamageable
             flashUntil = Time.time + flashDuration;
         }
 
-        Vector2 source = hitSource == default ? (Vector2)transform.position + Vector2.down : hitSource;
+        Vector2 source = context.origin == default ? (Vector2)transform.position + Vector2.down : context.origin;
         if (volumeFeedback == null)
         {
             volumeFeedback = GetComponent<HitVolumeFeedback>();
         }
         if (volumeFeedback != null)
         {
-            volumeFeedback.Play(source, enemyAI != null ? 1.65f : 1f);
+            float intensity = context.feedback.intensity * (enemyAI != null ? 1.65f : 1f);
+            volumeFeedback.Play(source, intensity);
         }
 
         if (enemyAI == null)
@@ -78,12 +82,21 @@ public class PrototypeDamageable : MonoBehaviour, IDamageable
         }
         if (enemyAI != null)
         {
-            enemyAI.OnDamaged(source, 1f);
+            enemyAI.OnDamaged(source, context.feedback.knockbackDistance);
         }
 
-        if ((stats != null && !stats.IsAlive) || currentHealth <= 0f)
+        bool killed = (stats != null && !stats.IsAlive) || currentHealth <= 0f;
+        if (killed)
         {
             gameObject.SetActive(false);
         }
+
+        bool dealtDamage = stats != null ? damageResult.finalDamage > 0f : context.baseDamage > 0f;
+        return new HitResult(true, dealtDamage, wasAlive && killed, damageResult.isCritical, stats != null ? damageResult.finalDamage : context.baseDamage, context.feedback);
+    }
+
+    public void TakeDamage(float amount, float armorPiercing = 0f, Vector2 hitSource = default, CharacterStats attacker = null)
+    {
+        ApplyDamage(DamageContext.Legacy(amount, armorPiercing, hitSource, attacker));
     }
 }

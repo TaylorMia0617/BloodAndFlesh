@@ -1,0 +1,84 @@
+{
+  "goods": [
+    {
+      "id": "item_small_heal",
+      "name": "小型治疗剂",
+      "rarity": "common",
+      "category": "item",
+      "price": 40,
+      "description": "立刻恢复 20 点生命值。",
+      "appearanceChance": 0.85,
+      "shopTags": ["normalShop"],
+      "effects": [
+        { "type": "restoreHealth", "target": "player", "value": 20.0 }
+      ]
+    },
+    {
+      "id": "item_mana_shard",
+      "name": "魔力碎晶",
+      "rarity": "common",
+      "category": "item",
+      "price": 55,
+      "description": "立刻恢复 0.5 格法力。",
+      "appearanceChance": 0.65,
+      "shopTags": ["normalShop"],
+      "effects": [
+        { "type": "restoreMana", "target": "player", "value": 0.5 }
+      ]
+    },
+    {
+      "id": "skill_dash_spark",
+      "name": "闪火步",
+      "rarity": "rare",
+      "category": "skill",
+      "price": 160,
+      "description": "获得一个短距离闪避技能，结束时留下小范围火花。",
+      "appearanceChance": 0.22,
+      "shopTags": ["normalShop"],
+      "effects": [
+        { "type": "unlockSkill", "skillId": "dash_spark", "slot": "Q" }
+      ]
+    },
+    {
+      "id": "material_iron_shard",
+      "name": "铁片",
+      "rarity": "common",
+      "category": "material",
+      "price": 25,
+      "description": "用于武器强化的基础材料。",
+      "appearanceChance": 0.9,
+      "shopTags": ["normalShop"],
+      "effects": [
+        { "type": "addMaterial", "materialId": "iron_shard", "amount": 1 }
+      ]
+    },
+    {
+      "id": "item_blood_lantern",
+      "name": "血灯",
+      "rarity": "rare",
+      "category": "item",
+      "price": 130,
+      "description": "短时间内扩大感知，但会吸引额外敌意。",
+      "appearanceChance": 0.35,
+      "shopTags": ["blackMarket"],
+      "effects": [
+        { "type": "addBuff", "buffId": "blood_lantern_sense", "stacks": 1 },
+        { "type": "addDebuff", "debuffId": "hostility_scent", "stacks": 1 }
+      ]
+    },
+    {
+      "id": "blackmarket_cursed_edge",
+      "name": "诅咒刃纹",
+      "rarity": "cursed",
+      "category": "item",
+      "price": 220,
+      "description": "武器伤害提高，但受到伤害也提高。黑市限定。",
+      "appearanceChance": 0.18,
+      "shopTags": ["blackMarket"],
+      "effects": [
+        { "type": "addBuff", "buffId": "cursed_weapon_damage", "stacks": 1 },
+        { "type": "addDebuff", "debuffId": "fragile_body", "stacks": 1 }
+      ]
+    }
+  ]
+}

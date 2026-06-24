@@ -1,0 +1,65 @@
+{
+  "buffs": [
+    {
+      "id": "flat_max_hp_10",
+      "name": "石心祝福",
+      "description": "直接获得最大生命值 +10。",
+      "rarity": "common",
+      "maxStacks": 3,
+      "conditions": [],
+      "effects": [
+        { "target": "player", "stat": "maxHealth", "mode": "add", "value": 10.0, "duration": 0.0 }
+      ]
+    },
+    {
+      "id": "weapon_damage_small",
+      "name": "锋刃祝福",
+      "description": "武器造成的伤害提高 12%。",
+      "rarity": "common",
+      "maxStacks": 3,
+      "conditions": [],
+      "effects": [
+        { "target": "outgoingDamage", "stat": "damageMultiplier", "mode": "multiply", "value": 1.12, "duration": 0.0 }
+      ]
+    },
+    {
+      "id": "low_hp_damage_boost",
+      "name": "濒死锋芒",
+      "description": "生命值低于 35% 时，造成伤害 +20%。",
+      "rarity": "rare",
+      "maxStacks": 1,
+      "conditions": [
+        { "type": "healthPercentBelow", "value": 0.35 }
+      ],
+      "effects": [
+        { "target": "outgoingDamage", "stat": "damageMultiplier", "mode": "multiply", "value": 1.2, "duration": 0.0 }
+      ]
+    },
+    {
+      "id": "after_kill_speed",
+      "name": "猎杀余势",
+      "description": "击杀敌人后获得 3 秒移动速度 +25%。",
+      "rarity": "common",
+      "maxStacks": 2,
+      "conditions": [
+        { "type": "onEnemyKilled", "value": 1.0 }
+      ],
+      "effects": [
+        { "target": "player", "stat": "moveSpeedMultiplier", "mode": "multiply", "value": 1.25, "duration": 3.0 }
+      ]
+    },
+    {
+      "id": "spell_cast_shield",
+      "name": "秘法余辉",
+      "description": "消耗法力后获得 1.5 秒护盾。",
+      "rarity": "rare",
+      "maxStacks": 1,
+      "conditions": [
+        { "type": "onManaSpent", "value": 0.5 }
+      ],
+      "effects": [
+        { "target": "player", "stat": "shield", "mode": "add", "value": 12.0, "duration": 1.5 }
+      ]
+    }
+  ]
+}

@@ -33,3 +33,10 @@ MonoBehaviour:
   targetLayers:
     serializedVersion: 2
     m_Bits: 4294967291
+  hitStopDuration: 0.035
+  hitStopTimeScale: 0.05
+  knockbackDistance: 1
+  knockbackDuration: 0.12
+  feedbackIntensity: 1.4
+  cameraShake: 0
+  blocksMovementDuringAttack: 1
