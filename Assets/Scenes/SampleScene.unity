@@ -245,13 +245,72 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   target: {fileID: 1398058233}
-  mapGenerator: {fileID: 1922000605}
+  mapGenerator: {fileID: 566688278}
   visionRadius: 5
   feather: 0.75
   rayCount: 192
   rayStep: 0.08
   lowHealthDarknessPerMissingPercent: 0.005
   maxHealthDarkness: 0.5
+--- !u!1 &566688277
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 566688279}
+  - component: {fileID: 566688278}
+  m_Layer: 0
+  m_Name: GeneratedGridRouteMap
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &566688278
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 566688277}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 705d1d855a724138820486b6ff13fdd6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  width: 100
+  height: 80
+  cellSize: 1
+  corridorHalfWidth: 2
+  branchCount: 18
+  roomCount: 12
+  roadSprite: {fileID: 0}
+  dangerSprite: {fileID: 0}
+  wallSprite: {fileID: 0}
+  safeRoomSprite: {fileID: 0}
+  safeDoorSprite: {fileID: 0}
+  enemySpawnCount: 6
+  enemySpawnMinDistanceFromPlayer: 12
+  hostilitySpawnInterval: 3.5
+  enemySprites: []
+--- !u!4 &566688279
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 566688277}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &769944266
 GameObject:
   m_ObjectHideFlags: 0
@@ -283,7 +342,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   playerInputManager: {fileID: 9003634699148763092}
   playerCombatController: {fileID: 1398058232}
-  mapGenerator: {fileID: 1922000605}
+  mapGenerator: {fileID: 566688278}
   runLevelManager: {fileID: 1348233767}
   mainCamera: {fileID: 519420031}
   blessingBackgroundSize: {x: 1080, y: 660}
@@ -291,14 +350,14 @@ MonoBehaviour:
   blessingGoddessSize: {x: 500, y: 740}
   blessingGoddessPosition: {x: 255, y: 0}
   blessingHintPosition: {x: 208, y: 600}
-  blessingCardSize: {x: 760, y: 148}
-  blessingCardStartPosition: {x: -700, y: 150}
-  blessingCardVerticalSpacing: 172
-  blessingCardTextOffset: {x: 112, y: 0}
+  blessingCardSize: {x: 520, y: 108}
+  blessingCardStartPosition: {x: 225, y: 170}
+  blessingCardVerticalSpacing: 150
+  blessingCardTextOffset: {x: 76, y: 0}
   blessingIconSize: {x: 72, y: 72}
   blessingIconPosition: {x: 58, y: 0}
-  blessingConfirmButtonPosition: {x: -500, y: 82}
-  blessingCancelButtonPosition: {x: -300, y: 82}
+  blessingConfirmButtonPosition: {x: 285, y: -258}
+  blessingCancelButtonPosition: {x: 480, y: -258}
   blessingSelectionOutlinePadding: 8
   blessingSelectionOutlineThickness: 5
 --- !u!4 &769944268
@@ -648,65 +707,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!1 &1922000604
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 1922000606}
-  - component: {fileID: 1922000605}
-  m_Layer: 0
-  m_Name: GeneratedGridRouteMap
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!114 &1922000605
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1922000604}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 705d1d855a724138820486b6ff13fdd6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  width: 100
-  height: 80
-  cellSize: 1
-  corridorHalfWidth: 2
-  branchCount: 18
-  roomCount: 12
-  roadSprite: {fileID: 0}
-  dangerSprite: {fileID: 0}
-  wallSprite: {fileID: 0}
-  safeRoomSprite: {fileID: 0}
-  safeDoorSprite: {fileID: 0}
-  enemySpawnCount: 6
-  enemySpawnMinDistanceFromPlayer: 12
-  hostilitySpawnInterval: 3.5
-  enemySprites: []
---- !u!4 &1922000606
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1922000604}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &9003634699148763090 stripped
 GameObject:
   m_CorrespondingSourceObject: {fileID: 9003634699942245157, guid: 2b7db03c840569844a82befb300f0a04, type: 3}
@@ -802,4 +802,4 @@ SceneRoots:
   - {fileID: 769944268}
   - {fileID: 905448223}
   - {fileID: 1348233768}
-  - {fileID: 1922000606}
+  - {fileID: 566688279}

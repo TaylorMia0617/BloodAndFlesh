@@ -442,8 +442,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   maxHealth: 70
   armor: 1
+  magicImmunity: 0
   moveSpeed: 6
   moveDelay: 0.5
+  physicalAttack: 0
+  magicAttack: 0
   attack: 0
   damageMultiplier: 1
   critChance: 0

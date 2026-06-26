@@ -1,0 +1,190 @@
+{
+  "enemies": [
+    {
+      "archetype": "Attacker",
+      "displayName": "Warrior",
+      "spriteResource": "Arts/SimpleSprites/enemy_warrior_simple",
+      "baseStats": {
+        "maxHealth": 20,
+        "armor": 0.5,
+        "magicImmunity": 0.0,
+        "physicalAttack": 8,
+        "magicAttack": 0,
+        "moveSpeed": 2.25,
+        "moveDelay": 0.12,
+        "colliderRadius": 0.38,
+        "knockbackDistance": 2,
+        "knockbackDuration": 0.28,
+        "accelerationTime": 0.35
+      },
+      "spawn": {
+        "baseWeight": 3,
+        "minHostilityLevel": 0,
+        "weightPerHostilityLevel": 0.35,
+        "hostilityWeightCurve": "linear"
+      },
+      "behavior": {
+        "visionRange": 7,
+        "stopDistance": 0.25,
+        "meleeAttackRange": 0.72,
+        "meleeAttackCooldown": 1.4,
+        "meleeRecoverDistance": 2.3,
+        "rangedPreferredDistance": 3.6,
+        "rangedAttackCooldown": 1.8,
+        "rangedProjectileSpeed": 7,
+        "rangedProjectileDistance": 6,
+        "sentinelSignalRadius": 15,
+        "sentinelFleeDuration": 1.8
+      },
+      "drops": [
+        { "id": "gold", "type": "gold", "chance": 0.75, "min": 2, "max": 7, "rarity": "common", "hostilityMultiplier": 1.0, "hostilityChanceBonus": 0.01 },
+        { "id": "material_iron_shard", "type": "material", "chance": 0.18, "min": 1, "max": 1, "rarity": "common", "hostilityMultiplier": 1.0, "hostilityChanceBonus": 0.006 }
+      ],
+      "skills": [
+        { "id": "direct_chase", "trigger": "spawnAtHighHostility", "cooldown": 0, "minHostilityLevel": 6 }
+      ],
+      "phases": []
+    },
+    {
+      "archetype": "Sentinel",
+      "displayName": "Scout",
+      "spriteResource": "Arts/SimpleSprites/enemy_scout_simple",
+      "baseStats": {
+        "maxHealth": 20,
+        "armor": 1,
+        "magicImmunity": 0.0,
+        "physicalAttack": 0,
+        "magicAttack": 0,
+        "moveSpeed": 3,
+        "moveDelay": 0.2,
+        "colliderRadius": 0.38,
+        "knockbackDistance": 2,
+        "knockbackDuration": 0.28,
+        "accelerationTime": 0.35
+      },
+      "spawn": {
+        "baseWeight": 1,
+        "minHostilityLevel": 0,
+        "weightPerHostilityLevel": 0.4,
+        "hostilityWeightCurve": "linear"
+      },
+      "behavior": {
+        "visionRange": 20,
+        "stopDistance": 0.25,
+        "meleeAttackRange": 0.72,
+        "meleeAttackCooldown": 1.4,
+        "meleeRecoverDistance": 2.3,
+        "rangedPreferredDistance": 3.6,
+        "rangedAttackCooldown": 1.8,
+        "rangedProjectileSpeed": 7,
+        "rangedProjectileDistance": 6,
+        "sentinelSignalRadius": 15,
+        "sentinelFleeDuration": 1.8
+      },
+      "drops": [
+        { "id": "gold", "type": "gold", "chance": 0.55, "min": 1, "max": 4, "rarity": "common", "hostilityMultiplier": 1.0, "hostilityChanceBonus": 0.008 },
+        { "id": "material_signal_shard", "type": "material", "chance": 0.14, "min": 1, "max": 1, "rarity": "common", "hostilityMultiplier": 1.0, "hostilityChanceBonus": 0.008 }
+      ],
+      "skills": [
+        { "id": "alarm_signal", "trigger": "playerSeen", "cooldown": 6, "minHostilityLevel": 0 }
+      ],
+      "phases": []
+    },
+    {
+      "archetype": "Ranged",
+      "displayName": "Ranged",
+      "spriteResource": "Arts/SimpleSprites/enemy_caster_simple",
+      "baseStats": {
+        "maxHealth": 10,
+        "armor": 0,
+        "magicImmunity": 0.2,
+        "physicalAttack": 0,
+        "magicAttack": 4,
+        "moveSpeed": 2,
+        "moveDelay": 0.12,
+        "colliderRadius": 0.38,
+        "knockbackDistance": 2,
+        "knockbackDuration": 0.28,
+        "accelerationTime": 0.35
+      },
+      "spawn": {
+        "baseWeight": 2,
+        "minHostilityLevel": 1,
+        "weightPerHostilityLevel": 0.45,
+        "hostilityWeightCurve": "linear"
+      },
+      "behavior": {
+        "visionRange": 15,
+        "stopDistance": 3.6,
+        "meleeAttackRange": 0.72,
+        "meleeAttackCooldown": 1.4,
+        "meleeRecoverDistance": 2.3,
+        "rangedPreferredDistance": 3.6,
+        "rangedAttackCooldown": 1.8,
+        "rangedProjectileSpeed": 7,
+        "rangedProjectileDistance": 6,
+        "sentinelSignalRadius": 15,
+        "sentinelFleeDuration": 1.8
+      },
+      "drops": [
+        { "id": "gold", "type": "gold", "chance": 0.68, "min": 2, "max": 6, "rarity": "common", "hostilityMultiplier": 1.0, "hostilityChanceBonus": 0.01 },
+        { "id": "material_arcane_splinter", "type": "material", "chance": 0.16, "min": 1, "max": 1, "rarity": "rare", "hostilityMultiplier": 1.12, "hostilityChanceBonus": 0.007 }
+      ],
+      "skills": [
+        { "id": "ranged_burst", "trigger": "lineOfSight", "cooldown": 4.5, "minHostilityLevel": 2 }
+      ],
+      "phases": []
+    },
+    {
+      "archetype": "Shield",
+      "displayName": "Shield",
+      "spriteResource": "Arts/SimpleSprites/enemy_shield_simple",
+      "baseStats": {
+        "maxHealth": 30,
+        "armor": 3,
+        "magicImmunity": 0.1,
+        "physicalAttack": 2,
+        "magicAttack": 0,
+        "moveSpeed": 1.25,
+        "moveDelay": 0.35,
+        "colliderRadius": 0.46,
+        "knockbackDistance": 2,
+        "knockbackDuration": 0.28,
+        "accelerationTime": 0.35
+      },
+      "spawn": {
+        "baseWeight": 2,
+        "minHostilityLevel": 2,
+        "weightPerHostilityLevel": 0.5,
+        "hostilityWeightCurve": "steep"
+      },
+      "behavior": {
+        "visionRange": 5,
+        "stopDistance": 0.25,
+        "meleeAttackRange": 0.9,
+        "meleeAttackCooldown": 1.75,
+        "meleeRecoverDistance": 2.3,
+        "rangedPreferredDistance": 3.6,
+        "rangedAttackCooldown": 1.8,
+        "rangedProjectileSpeed": 7,
+        "rangedProjectileDistance": 6,
+        "sentinelSignalRadius": 15,
+        "sentinelFleeDuration": 1.8
+      },
+      "drops": [
+        { "id": "gold", "type": "gold", "chance": 0.8, "min": 3, "max": 9, "rarity": "common", "hostilityMultiplier": 1.0, "hostilityChanceBonus": 0.012 },
+        { "id": "material_guard_plate", "type": "material", "chance": 0.22, "min": 1, "max": 1, "rarity": "rare", "hostilityMultiplier": 1.15, "hostilityChanceBonus": 0.008 }
+      ],
+      "skills": [
+        { "id": "shield_bash", "trigger": "nearPlayer", "cooldown": 5, "minHostilityLevel": 3 }
+      ],
+      "phases": [
+        {
+          "atHealthRatio": 0.45,
+          "statMultipliers": { "maxHealth": 1, "armor": 1.2, "attack": 1.15, "moveSpeed": 1.05 },
+          "addSkills": ["shield_bash"]
+        }
+      ]
+    }
+  ]
+}

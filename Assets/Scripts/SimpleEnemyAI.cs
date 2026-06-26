@@ -4,7 +4,7 @@ using UnityEngine;
 
 [RequireComponent(typeof(Rigidbody2D))]
 [RequireComponent(typeof(CharacterStats))]
-public class SimpleEnemyAI : MonoBehaviour
+public class SimpleEnemyAI : MonoBehaviour, ILocalFreezable
 {
     private enum CombatState
     {
@@ -21,6 +21,10 @@ public class SimpleEnemyAI : MonoBehaviour
     [SerializeField] private float knockbackDistance = 2f;
     [SerializeField] private float meleeAttackRange = 0.72f;
     [SerializeField] private float meleeAttackCooldown = 1.4f;
+    [SerializeField] private float meleePlayerKnockbackDistance = 0.65f;
+    [SerializeField] private float meleePlayerKnockbackDuration = 0.18f;
+    [SerializeField] private float rangedPlayerKnockbackDistance = 0.35f;
+    [SerializeField] private float rangedPlayerKnockbackDuration = 0.12f;
     [SerializeField] private float meleeRecoverDistance = 2.3f;
     [SerializeField] private float rangedPreferredDistance = 3.6f;
     [SerializeField] private float rangedAttackCooldown = 1.8f;
@@ -36,37 +40,50 @@ public class SimpleEnemyAI : MonoBehaviour
     [SerializeField] private float hostilitySenseRange = 5f;
     [SerializeField] private bool hostilityIgnoresLineOfSight = true;
 
+    private const float SentinelRealtimeBroadcastInterval = 0.45f;
+
     private Rigidbody2D body;
     private CharacterStats stats;
+    private KnockbackReceiver knockbackReceiver;
     private SpriteRenderer spriteRenderer;
     private ParticleSystem signalParticles;
     private GridRouteMapGenerator mapGenerator;
     private float currentSpeedMultiplier = 1f;
     private float recoveryUntil;
     private float knockbackUntil;
-    private Vector2 knockbackStart;
-    private Vector2 knockbackEnd;
+    private float localHitStopUntil;
     private float strafeDirection = 1f;
-    private Coroutine knockbackRoutine;
     private Vector2 lastKnownPlayerPosition;
     private CombatState combatState = CombatState.Chase;
     private float nextAttackTime;
     private float recoverUntil;
     private float sentinelAlertUntil;
+    private float forcedDirectChaseUntil;
     private float nextAllySearchTime;
-    private bool sentinelHasReported;
+    private bool sentinelAlerted;
+    private float nextSentinelBroadcastTime;
+    private float nextSentinelSummonTime;
+    private Vector3[] sentinelPatrolRoute = System.Array.Empty<Vector3>();
+    private int sentinelPatrolIndex;
+    private int sentinelSummonCount;
+    private string sentinelSummonEnemyArchetypes;
+    private float sentinelSummonCooldown;
+    private float sentinelSummonDenSearchRadius;
     private Transform cachedAlly;
     private float stunnedUntil;
+    private Vector2 visualFacingDirection = Vector2.up;
     private Color preStunColor = Color.white;
     private bool stunTintActive;
     private StunStatusVisual stunVisual;
 
     public EnemyArchetype Archetype => archetype;
+    private bool IsLocallyHitStopped => Time.unscaledTime < localHitStopUntil;
 
     private void Awake()
     {
         body = GetComponent<Rigidbody2D>();
         stats = GetComponent<CharacterStats>();
+        knockbackReceiver = GetComponent<KnockbackReceiver>();
         spriteRenderer = GetComponent<SpriteRenderer>();
         mapGenerator = FindObjectOfType<GridRouteMapGenerator>();
         if (target == null)
@@ -103,6 +120,12 @@ public class SimpleEnemyAI : MonoBehaviour
 
         ClearStunTintIfNeeded();
 
+        if (IsLocallyHitStopped)
+        {
+            body.velocity = Vector2.zero;
+            return;
+        }
+
         if (Time.time < knockbackUntil)
         {
             return;
@@ -110,6 +133,11 @@ public class SimpleEnemyAI : MonoBehaviour
 
         if (target == null)
         {
+            if (archetype == EnemyArchetype.Sentinel && !sentinelAlerted && sentinelPatrolRoute.Length > 0)
+            {
+                MoveSentinelPatrol(body.position);
+            }
+
             return;
         }
 
@@ -125,15 +153,32 @@ public class SimpleEnemyAI : MonoBehaviour
         bool seesTarget = CanSeeTarget(current, target.position, distance);
         bool sensesHostility = CanSenseHostility(distance);
         bool sensesEvent = TrySenseRecentEvent(current, out Vector2 sensedPosition);
-        if (!seesTarget && !sensesHostility)
+        bool forcedDirectChase = Time.time < forcedDirectChaseUntil;
+        bool sentinelRealtimeAlert = archetype == EnemyArchetype.Sentinel && sentinelAlerted;
+        if (!seesTarget && !sensesHostility && !forcedDirectChase && !sentinelRealtimeAlert)
         {
             if (sensesEvent)
             {
                 lastKnownPlayerPosition = sensedPosition;
+                if (archetype == EnemyArchetype.Sentinel)
+                {
+                    EnterSentinelAlert(sensedPosition, false);
+                }
+            }
+
+            if (archetype == EnemyArchetype.Sentinel && !sentinelAlerted && sentinelPatrolRoute.Length > 0)
+            {
+                MoveSentinelPatrol(current);
+                return;
             }
 
             MoveTowardLastKnownPosition(current);
             return;
+        }
+
+        if (archetype == EnemyArchetype.Sentinel && (seesTarget || sensesHostility || sensesEvent || forcedDirectChase))
+        {
+            EnterSentinelAlert(seesTarget || sensesHostility || forcedDirectChase ? (Vector2)target.position : sensedPosition, false);
         }
 
         lastKnownPlayerPosition = target.position;
@@ -163,7 +208,7 @@ public class SimpleEnemyAI : MonoBehaviour
 
         if (direction.sqrMagnitude > 0.001f)
         {
-            EnemyMovementMotor.Face(transform, direction);
+            FaceDirection(direction);
         }
     }
 
@@ -179,6 +224,24 @@ public class SimpleEnemyAI : MonoBehaviour
 
         ApplyConfig(EnemyConfigDatabase.Get(nextArchetype));
         ApplyColor(nextArchetype);
+    }
+
+    public void ConfigureFixedScoutPatrol(
+        Vector3[] patrolRoute,
+        string summonEnemyArchetypes,
+        int summonCount,
+        float summonCooldown,
+        float summonDenSearchRadius)
+    {
+        sentinelPatrolRoute = patrolRoute ?? System.Array.Empty<Vector3>();
+        sentinelPatrolIndex = sentinelPatrolRoute.Length > 1 ? 1 : 0;
+        sentinelSummonEnemyArchetypes = string.IsNullOrWhiteSpace(summonEnemyArchetypes) ? "Attacker:1" : summonEnemyArchetypes;
+        sentinelSummonCount = Mathf.Max(0, summonCount);
+        sentinelSummonCooldown = Mathf.Max(0.1f, summonCooldown);
+        sentinelSummonDenSearchRadius = Mathf.Max(0f, summonDenSearchRadius);
+        sentinelAlerted = false;
+        nextSentinelBroadcastTime = 0f;
+        nextSentinelSummonTime = 0f;
     }
 
     public static float GetVisionRange(EnemyArchetype type)
@@ -224,6 +287,21 @@ public class SimpleEnemyAI : MonoBehaviour
 
         EnsureStunVisual();
         stunVisual.Show(duration);
+    }
+
+    public void BeginDirectChase(float duration)
+    {
+        forcedDirectChaseUntil = Mathf.Max(forcedDirectChaseUntil, Time.time + Mathf.Max(0.1f, duration));
+        if (target == null)
+        {
+            PlayerInputManager player = FindObjectOfType<PlayerInputManager>();
+            target = player != null ? player.transform : null;
+        }
+
+        if (target != null)
+        {
+            lastKnownPlayerPosition = target.position;
+        }
     }
 
     private void ClearStunTintIfNeeded()
@@ -273,28 +351,40 @@ public class SimpleEnemyAI : MonoBehaviour
             case EnemyArchetype.Sentinel:
                 stats.maxHealth = 40f;
                 stats.armor = 1f;
-                stats.attack = 4f;
+                stats.magicImmunity = 0f;
+                stats.physicalAttack = 4f;
+                stats.magicAttack = 0f;
+                stats.attack = 0f;
                 stats.moveSpeed = 2.15f;
                 stats.moveDelay = 0.2f;
                 break;
             case EnemyArchetype.Ranged:
                 stats.maxHealth = 24f;
                 stats.armor = 0f;
-                stats.attack = 6f;
+                stats.magicImmunity = 0.2f;
+                stats.physicalAttack = 0f;
+                stats.magicAttack = 6f;
+                stats.attack = 0f;
                 stats.moveSpeed = 2.2f;
                 stats.moveDelay = 0.12f;
                 break;
             case EnemyArchetype.Shield:
                 stats.maxHealth = 65f;
                 stats.armor = 4f;
-                stats.attack = 10f;
+                stats.magicImmunity = 0.1f;
+                stats.physicalAttack = 10f;
+                stats.magicAttack = 0f;
+                stats.attack = 0f;
                 stats.moveSpeed = 1.25f;
                 stats.moveDelay = 0.35f;
                 break;
             default:
                 stats.maxHealth = 30f;
                 stats.armor = 0.5f;
-                stats.attack = 8f;
+                stats.magicImmunity = 0f;
+                stats.physicalAttack = 8f;
+                stats.magicAttack = 0f;
+                stats.attack = 0f;
                 stats.moveSpeed = 2.45f;
                 stats.moveDelay = 0.12f;
                 break;
@@ -316,8 +406,20 @@ public class SimpleEnemyAI : MonoBehaviour
         accelerationTime = config.accelerationTime;
         knockbackDuration = config.knockbackDuration;
         knockbackDistance = config.knockbackDistance;
+        if (knockbackReceiver == null)
+        {
+            knockbackReceiver = GetComponent<KnockbackReceiver>();
+        }
+        if (knockbackReceiver != null)
+        {
+            knockbackReceiver.Configure(knockbackDistance, knockbackDuration);
+        }
         meleeAttackRange = config.meleeAttackRange;
         meleeAttackCooldown = config.meleeAttackCooldown;
+        meleePlayerKnockbackDistance = archetype == EnemyArchetype.Shield ? 0.9f : 0.65f;
+        meleePlayerKnockbackDuration = Mathf.Max(0.08f, config.knockbackDuration * 0.65f);
+        rangedPlayerKnockbackDistance = 0.35f;
+        rangedPlayerKnockbackDuration = Mathf.Max(0.06f, config.knockbackDuration * 0.43f);
         meleeRecoverDistance = config.meleeRecoverDistance;
         rangedPreferredDistance = config.rangedPreferredDistance;
         rangedAttackCooldown = config.rangedAttackCooldown;
@@ -332,7 +434,10 @@ public class SimpleEnemyAI : MonoBehaviour
             stats.usesMana = false;
             stats.maxHealth = config.maxHealth;
             stats.armor = config.armor;
-            stats.attack = config.attack;
+            stats.magicImmunity = Mathf.Clamp01(config.magicImmunity);
+            stats.physicalAttack = config.physicalAttack;
+            stats.magicAttack = config.magicAttack;
+            stats.attack = 0f;
             stats.moveSpeed = config.moveSpeed;
             stats.moveDelay = config.moveDelay;
             stats.ResetStats();
@@ -401,51 +506,46 @@ public class SimpleEnemyAI : MonoBehaviour
         }
     }
 
-    public void OnDamaged(Vector2 hitSource, float force)
+    public void OnDamaged(Vector2 hitSource, float weaponKnockbackDistance, float weaponKnockbackDuration)
     {
         if (body == null)
         {
             return;
         }
 
-        Vector2 away = body.position - hitSource;
-        if (away.sqrMagnitude < 0.001f && target != null)
-        {
-            away = body.position - (Vector2)target.position;
-        }
-        if (away.sqrMagnitude < 0.001f)
-        {
-            away = Random.insideUnitCircle.normalized;
-        }
-
-        away.Normalize();
-        knockbackStart = body.position;
-        float distance = Mathf.Max(0.05f, force);
-        knockbackEnd = knockbackStart + away * distance;
-        knockbackUntil = Time.time + knockbackDuration;
+        float finalDuration = Mathf.Max(0.04f, weaponKnockbackDuration * Mathf.Max(0.01f, knockbackDuration));
+        knockbackUntil = Time.time + finalDuration;
         currentSpeedMultiplier = 0.35f;
         recoveryUntil = knockbackUntil + accelerationTime;
 
         if (archetype == EnemyArchetype.Sentinel)
         {
-            sentinelAlertUntil = Time.time + sentinelFleeDuration;
-            BroadcastPlayerPosition(true);
+            EnterSentinelAlert(hitSource, true);
         }
 
-        if (knockbackRoutine != null)
+        if (knockbackReceiver == null)
         {
-            StopCoroutine(knockbackRoutine);
+            knockbackReceiver = GetComponent<KnockbackReceiver>();
         }
-        knockbackRoutine = StartCoroutine(KnockbackRoutine(knockbackStart, knockbackEnd, knockbackDuration));
+    }
+
+    public void PushHitStop(float duration)
+    {
+        if (duration <= 0f)
+        {
+            return;
+        }
+
+        localHitStopUntil = Mathf.Max(localHitStopUntil, Time.unscaledTime + duration);
+        if (body != null)
+        {
+            body.velocity = Vector2.zero;
+        }
     }
 
     private void MoveSentinel(Vector2 current, Vector2 directionToTarget, float distance, Vector2 playerPosition)
     {
-        if (!sentinelHasReported)
-        {
-            sentinelHasReported = true;
-            BroadcastPlayerPosition(false);
-        }
+        TickSentinelAlertActions(true);
 
         Vector2 moveDirection;
         float speedMultiplier = 1f;
@@ -478,6 +578,36 @@ public class SimpleEnemyAI : MonoBehaviour
         float sentinelSpeed = Mathf.Max(0.1f, stats.moveSpeed) * currentSpeedMultiplier * speedMultiplier;
         EnemyMovementMotor.Move(body, current, moveDirection, sentinelSpeed);
         FaceDirection(directionToTarget);
+    }
+
+    private void MoveSentinelPatrol(Vector2 current)
+    {
+        if (sentinelPatrolRoute == null || sentinelPatrolRoute.Length == 0)
+        {
+            body.velocity = Vector2.zero;
+            return;
+        }
+
+        Vector2 destination = sentinelPatrolRoute[Mathf.Clamp(sentinelPatrolIndex, 0, sentinelPatrolRoute.Length - 1)];
+        Vector2 delta = destination - current;
+        if (delta.sqrMagnitude <= 0.12f)
+        {
+            sentinelPatrolIndex = (sentinelPatrolIndex + 1) % sentinelPatrolRoute.Length;
+            destination = sentinelPatrolRoute[sentinelPatrolIndex];
+            delta = destination - current;
+        }
+
+        if (delta.sqrMagnitude <= 0.001f)
+        {
+            body.velocity = Vector2.zero;
+            return;
+        }
+
+        RecoverMoveSpeed();
+        Vector2 direction = delta.normalized;
+        float speed = Mathf.Max(0.1f, stats.moveSpeed) * currentSpeedMultiplier;
+        EnemyMovementMotor.Move(body, current, direction, speed);
+        FaceDirection(direction);
     }
 
     private void MoveMeleeEnemy(Vector2 current, Vector2 directionToTarget, float distance)
@@ -641,8 +771,8 @@ public class SimpleEnemyAI : MonoBehaviour
             return;
         }
 
-        Vector2 forward = transform.up;
-        Vector2 side = transform.right;
+        Vector2 forward = visualFacingDirection.sqrMagnitude > 0.001f ? visualFacingDirection.normalized : Vector2.up;
+        Vector2 side = new Vector2(-forward.y, forward.x);
         Color color = archetype == EnemyArchetype.Shield ? new Color(1f, 0.72f, 0.24f, 0.9f) : new Color(1f, 0.18f, 0.08f, 0.9f);
         int pulseCount = archetype == EnemyArchetype.Shield ? 28 : 22;
         float reach = archetype == EnemyArchetype.Shield ? 1.15f : 0.92f;
@@ -821,8 +951,7 @@ public class SimpleEnemyAI : MonoBehaviour
             PlayerInputManager playerMovement = target.GetComponent<PlayerInputManager>();
             if (playerMovement != null)
             {
-                float distance = archetype == EnemyArchetype.Shield ? 0.9f : 0.65f;
-                playerMovement.ApplyExternalKnockback(current, distance, 0.18f);
+                playerMovement.ApplyExternalKnockback(current, meleePlayerKnockbackDistance, meleePlayerKnockbackDuration);
             }
         }
     }
@@ -854,7 +983,7 @@ public class SimpleEnemyAI : MonoBehaviour
             PlayerInputManager playerMovement = target.GetComponent<PlayerInputManager>();
             if (playerMovement != null)
             {
-                playerMovement.ApplyExternalKnockback(current, 0.35f, 0.12f);
+                playerMovement.ApplyExternalKnockback(current, rangedPlayerKnockbackDistance, rangedPlayerKnockbackDuration);
             }
         }
     }
@@ -888,6 +1017,7 @@ public class SimpleEnemyAI : MonoBehaviour
             origin,
             hitPoint,
             hitDirection,
+            0f,
             0f,
             0f,
             new FeedbackPayload(0.025f, 0.08f, archetype == EnemyArchetype.Shield ? 0.9f : 0.65f, 0.18f, 1.2f, 0f),
@@ -931,11 +1061,83 @@ public class SimpleEnemyAI : MonoBehaviour
     public void ReceivePlayerSignal(Vector2 playerPosition)
     {
         lastKnownPlayerPosition = playerPosition;
-        sentinelHasReported = true;
         if (target == null)
         {
             PlayerInputManager player = FindObjectOfType<PlayerInputManager>();
             target = player != null ? player.transform : null;
+        }
+    }
+
+    private void EnterSentinelAlert(Vector2 playerPosition, bool urgent)
+    {
+        sentinelAlerted = true;
+        sentinelAlertUntil = Mathf.Max(sentinelAlertUntil, Time.time + sentinelFleeDuration);
+        lastKnownPlayerPosition = playerPosition;
+        if (target != null)
+        {
+            lastKnownPlayerPosition = target.position;
+        }
+
+        BroadcastPlayerPosition(urgent);
+        nextSentinelBroadcastTime = Time.time + SentinelRealtimeBroadcastInterval;
+    }
+
+    private void TickSentinelAlertActions(bool allowSummon)
+    {
+        if (!sentinelAlerted)
+        {
+            return;
+        }
+
+        if (target != null)
+        {
+            lastKnownPlayerPosition = target.position;
+        }
+
+        if (Time.time >= nextSentinelBroadcastTime)
+        {
+            BroadcastPlayerPosition(false);
+            nextSentinelBroadcastTime = Time.time + SentinelRealtimeBroadcastInterval;
+        }
+
+        if (allowSummon && sentinelSummonCount > 0 && Time.time >= nextSentinelSummonTime)
+        {
+            TryRequestNearestSpawnDen();
+            nextSentinelSummonTime = Time.time + sentinelSummonCooldown;
+        }
+    }
+
+    private void TryRequestNearestSpawnDen()
+    {
+        ResolveMapGenerator();
+        if (mapGenerator == null)
+        {
+            return;
+        }
+
+        IReadOnlyList<SpawnDenController> dens = mapGenerator.SpawnDens;
+        SpawnDenController best = null;
+        float bestDistance = float.MaxValue;
+        Vector2 current = transform.position;
+        for (int i = 0; i < dens.Count; i++)
+        {
+            SpawnDenController den = dens[i];
+            if (den == null || den.IsDestroyed)
+            {
+                continue;
+            }
+
+            float distance = Vector2.Distance(current, den.transform.position);
+            if (distance <= sentinelSummonDenSearchRadius && distance < bestDistance)
+            {
+                best = den;
+                bestDistance = distance;
+            }
+        }
+
+        if (best != null)
+        {
+            best.QueueExternalSpawnRequest(sentinelSummonEnemyArchetypes, sentinelSummonCount);
         }
     }
 
@@ -978,6 +1180,7 @@ public class SimpleEnemyAI : MonoBehaviour
         EnemyRegistry.Prune();
         IReadOnlyList<SimpleEnemyAI> enemies = EnemyRegistry.Enemies;
         Vector2 current = transform.position;
+        float broadcastRadius = urgent ? sentinelSignalRadius * 1.5f : sentinelSignalRadius;
         for (int i = 0; i < enemies.Count; i++)
         {
             SimpleEnemyAI enemy = enemies[i];
@@ -986,7 +1189,7 @@ public class SimpleEnemyAI : MonoBehaviour
                 continue;
             }
 
-            if (Vector2.Distance(current, enemy.transform.position) <= sentinelSignalRadius)
+            if (Vector2.Distance(current, enemy.transform.position) <= broadcastRadius)
             {
                 enemy.ReceivePlayerSignal(lastKnownPlayerPosition);
             }
@@ -1063,29 +1266,6 @@ public class SimpleEnemyAI : MonoBehaviour
         return targetStats != null && targetStats.IsUntargetable;
     }
 
-    private IEnumerator KnockbackRoutine(Vector2 start, Vector2 end, float duration)
-    {
-        float elapsed = 0f;
-        while (elapsed < duration)
-        {
-            elapsed += Time.fixedDeltaTime;
-            float t = Mathf.Clamp01(elapsed / Mathf.Max(0.001f, duration));
-            float eased = 1f - Mathf.Pow(1f - t, 2f);
-            if (body != null)
-            {
-                body.MovePosition(Vector2.Lerp(start, end, eased));
-            }
-            yield return new WaitForFixedUpdate();
-        }
-
-        if (body != null)
-        {
-            body.MovePosition(end);
-            body.velocity = Vector2.zero;
-        }
-        knockbackRoutine = null;
-    }
-
     private void RecoverMoveSpeed()
     {
         if (Time.time >= recoveryUntil)
@@ -1106,7 +1286,16 @@ public class SimpleEnemyAI : MonoBehaviour
             return;
         }
 
-        float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg - 90f;
-        transform.rotation = Quaternion.Euler(0f, 0f, angle);
+        visualFacingDirection = direction.normalized;
+        transform.rotation = Quaternion.identity;
+        if (spriteRenderer == null)
+        {
+            spriteRenderer = GetComponent<SpriteRenderer>();
+        }
+
+        if (spriteRenderer != null && Mathf.Abs(visualFacingDirection.x) > 0.05f)
+        {
+            spriteRenderer.flipX = visualFacingDirection.x > 0f;
+        }
     }
 }

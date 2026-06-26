@@ -5,7 +5,7 @@ using UnityEngine;
 [RequireComponent(typeof(MeshFilter))]
 [RequireComponent(typeof(MeshRenderer))]
 [RequireComponent(typeof(PolygonCollider2D))]
-public class AttackWaveEffect : MonoBehaviour
+public class AttackWaveEffect : MonoBehaviour, ILocalFreezable
 {
     private static int nextAttackId = 1;
     private static readonly int ProgressId = Shader.PropertyToID("_Progress");
@@ -35,12 +35,32 @@ public class AttackWaveEffect : MonoBehaviour
     private bool attachedWeaponBodyCollider;
     private bool renderAttachedVisual;
     private int activeAttackId;
+    private float localHitStopUntil;
     private float attachedColliderBottom;
     private float attachedColliderTop;
     private float attachedColliderHalfWidth;
     private float sweepInnerRadius;
     private float sweepOuterRadius;
-    private readonly HashSet<Collider2D> damagedColliders = new HashSet<Collider2D>();
+    private readonly HashSet<int> damagedTargetIds = new HashSet<int>();
+    private readonly Dictionary<int, int> repeatHitCounts = new Dictionary<int, int>();
+    private readonly Dictionary<int, float> nextRepeatHitTimes = new Dictionary<int, float>();
+    private readonly Collider2D[] overlapResults = new Collider2D[32];
+    private readonly RaycastHit2D[] projectileCastResults = new RaycastHit2D[32];
+    private readonly Collider2D[] spellOverlapResults = new Collider2D[32];
+    private readonly List<AttackContact> attackContacts = new List<AttackContact>(32);
+    private ContactFilter2D overlapFilter;
+    private bool IsLocallyHitStopped => Time.unscaledTime < localHitStopUntil;
+    private const float SpearRepeatHitInterval = 0.14f;
+    private const int SpearRepeatHitLimit = 3;
+
+    private struct AttackContact
+    {
+        public Collider2D collider;
+        public IDamageable damageable;
+        public int ownerId;
+        public float projectedDistance;
+        public float distanceFromOrigin;
+    }
 
     private void Awake()
     {
@@ -70,7 +90,8 @@ public class AttackWaveEffect : MonoBehaviour
         activeAttackId = nextAttackId++;
         attachedWeaponBodyCollider = false;
         renderAttachedVisual = true;
-        damagedColliders.Clear();
+        damagedTargetIds.Clear();
+        ClearRepeatHitState();
         SetFade(0f);
         SetExpand(0f);
 
@@ -110,7 +131,8 @@ public class AttackWaveEffect : MonoBehaviour
         activeAttackId = nextAttackId++;
         attachedWeaponBodyCollider = useWeaponBodyCollider;
         renderAttachedVisual = renderVisual;
-        damagedColliders.Clear();
+        damagedTargetIds.Clear();
+        ClearRepeatHitState();
         SetFade(0f);
         SetExpand(0f);
 
@@ -138,7 +160,8 @@ public class AttackWaveEffect : MonoBehaviour
         float fadeTime = WeaponTiming.GetRecovery(weapon);
         activeWeapon = weapon;
         activeTargetLayers = targetLayers;
-        damagedColliders.Clear();
+        damagedTargetIds.Clear();
+        ClearRepeatHitState();
 
         waveCollider.enabled = false;
         yield return AnimateProgress(0f, 0.18f, windup);
@@ -165,7 +188,8 @@ public class AttackWaveEffect : MonoBehaviour
             }
             waveCollider.enabled = false;
             activeWeapon = null;
-            damagedColliders.Clear();
+            damagedTargetIds.Clear();
+            ClearRepeatHitState();
             EmitImpactParticles(weapon.weaponType);
             yield return AnimateSpellDissolve(fadeTime);
             gameObject.SetActive(false);
@@ -179,7 +203,8 @@ public class AttackWaveEffect : MonoBehaviour
 
         waveCollider.enabled = false;
         activeWeapon = null;
-        damagedColliders.Clear();
+        damagedTargetIds.Clear();
+        ClearRepeatHitState();
         EmitImpactParticles(weapon.weaponType);
         yield return AnimateProgress(0.92f, 1f, fadeTime);
 
@@ -192,7 +217,8 @@ public class AttackWaveEffect : MonoBehaviour
         SetProgress(0.18f);
         activeWeapon = weapon;
         activeTargetLayers = targetLayers;
-        damagedColliders.Clear();
+        damagedTargetIds.Clear();
+        ClearRepeatHitState();
 
         float windup = WeaponTiming.GetWindup(weapon);
         float activeTime = WeaponTiming.GetActive(weapon);
@@ -202,6 +228,12 @@ public class AttackWaveEffect : MonoBehaviour
         float elapsed = 0f;
         while (elapsed < windup)
         {
+            if (IsLocallyHitStopped)
+            {
+                yield return null;
+                continue;
+            }
+
             elapsed += Time.deltaTime;
             SyncToFollowAnchor();
             SetProgress(Mathf.Lerp(0f, 0.18f, Mathf.Clamp01(elapsed / Mathf.Max(0.001f, windup))));
@@ -216,6 +248,12 @@ public class AttackWaveEffect : MonoBehaviour
         elapsed = 0f;
         while (elapsed < activeTime)
         {
+            if (IsLocallyHitStopped)
+            {
+                yield return null;
+                continue;
+            }
+
             elapsed += Time.deltaTime;
             SyncToFollowAnchor();
             Physics2D.SyncTransforms();
@@ -233,13 +271,20 @@ public class AttackWaveEffect : MonoBehaviour
         elapsed = 0f;
         while (elapsed < fadeTime)
         {
+            if (IsLocallyHitStopped)
+            {
+                yield return null;
+                continue;
+            }
+
             elapsed += Time.deltaTime;
             SyncToFollowAnchor();
             SetProgress(Mathf.Lerp(0.92f, 1f, Mathf.Clamp01(elapsed / Mathf.Max(0.001f, fadeTime))));
             yield return null;
         }
 
-        damagedColliders.Clear();
+        damagedTargetIds.Clear();
+        ClearRepeatHitState();
         followAnchor = null;
         gameObject.SetActive(false);
         playRoutine = null;
@@ -274,6 +319,12 @@ public class AttackWaveEffect : MonoBehaviour
         float elapsed = 0f;
         while (elapsed < duration)
         {
+            if (IsLocallyHitStopped)
+            {
+                yield return null;
+                continue;
+            }
+
             elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(elapsed / duration);
             float eased = 1f - Mathf.Pow(1f - t, 2f);
@@ -297,6 +348,12 @@ public class AttackWaveEffect : MonoBehaviour
         Vector2 previousPosition = transform.position;
         while (elapsed < duration)
         {
+            if (IsLocallyHitStopped)
+            {
+                yield return null;
+                continue;
+            }
+
             elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(elapsed / duration);
             float eased = 1f - Mathf.Pow(1f - t, 2f);
@@ -326,6 +383,12 @@ public class AttackWaveEffect : MonoBehaviour
         float elapsed = 0f;
         while (elapsed < duration)
         {
+            if (IsLocallyHitStopped)
+            {
+                yield return null;
+                continue;
+            }
+
             elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(elapsed / duration);
             SetProgress(Mathf.Lerp(from, to, 1f - Mathf.Pow(1f - t, 3f)));
@@ -335,26 +398,54 @@ public class AttackWaveEffect : MonoBehaviour
 
     private bool DamageOverlappingTargets(WeaponDefinition weapon, LayerMask targetLayers)
     {
-        ContactFilter2D filter = new ContactFilter2D();
-        filter.useLayerMask = true;
-        filter.layerMask = targetLayers;
-        filter.useTriggers = true;
+        overlapFilter.useLayerMask = true;
+        overlapFilter.layerMask = targetLayers;
+        overlapFilter.useTriggers = true;
 
+        attackContacts.Clear();
         bool damagedAny = false;
-        Collider2D[] results = new Collider2D[32];
-        int hitCount = waveCollider.OverlapCollider(filter, results);
+        Vector2 origin = transform.position;
+        Vector2 forward = transform.up;
+        int hitCount = waveCollider.OverlapCollider(overlapFilter, overlapResults);
         for (int i = 0; i < hitCount; i++)
         {
-            Collider2D hit = results[i];
+            Collider2D hit = overlapResults[i];
             if (hit == null)
             {
                 continue;
             }
 
-            damagedAny |= DamageCollider(hit, weapon);
+            if (!TryResolveDamageable(hit, out IDamageable damageable, out int ownerId))
+            {
+                continue;
+            }
+
+            Vector2 hitPoint = GetHitPoint(hit);
+            Vector2 delta = hitPoint - origin;
+            attackContacts.Add(new AttackContact
+            {
+                collider = hit,
+                damageable = damageable,
+                ownerId = ownerId,
+                projectedDistance = Vector2.Dot(delta, forward),
+                distanceFromOrigin = delta.sqrMagnitude
+            });
         }
 
+        attackContacts.Sort(CompareAttackContacts);
+        for (int i = 0; i < attackContacts.Count; i++)
+        {
+            damagedAny |= DamageContact(attackContacts[i], weapon);
+        }
+
+        attackContacts.Clear();
         return damagedAny;
+    }
+
+    private int CompareAttackContacts(AttackContact left, AttackContact right)
+    {
+        int projected = left.projectedDistance.CompareTo(right.projectedDistance);
+        return projected != 0 ? projected : left.distanceFromOrigin.CompareTo(right.distanceFromOrigin);
     }
 
     private void OnTriggerEnter2D(Collider2D other)
@@ -369,63 +460,149 @@ public class AttackWaveEffect : MonoBehaviour
 
     private bool DamageCollider(Collider2D hit, WeaponDefinition weapon)
     {
-        if (hit == null || damagedColliders.Contains(hit))
+        if (hit == null || !TryResolveDamageable(hit, out IDamageable damageable, out int ownerId))
         {
             return false;
         }
 
-        foreach (MonoBehaviour behaviour in hit.GetComponents<MonoBehaviour>())
+        return DamageContact(new AttackContact { collider = hit, damageable = damageable, ownerId = ownerId }, weapon);
+    }
+
+    private bool DamageContact(AttackContact contact, WeaponDefinition weapon)
+    {
+        if (contact.collider == null || contact.damageable == null || !CanDamageTarget(contact.ownerId, weapon))
         {
-            if (behaviour is IDamageable damageable)
+            return false;
+        }
+
+        if (attackerStats == null)
+        {
+            attackerStats = GetComponentInParent<CharacterStats>();
+        }
+
+        Vector2 hitPoint = GetHitPoint(contact.collider);
+        Vector2 origin = transform.position;
+        Vector2 hitDirection = hitPoint - origin;
+        if (hitDirection.sqrMagnitude < 0.001f)
+        {
+            hitDirection = transform.up;
+        }
+
+        bool spearTipHit = IsAttachedSpearTipHit(contact.collider, weapon);
+        float hitDamageMultiplier = GetAttachedHitDamageMultiplier(contact.collider, weapon);
+        DamageContext context = new DamageContext(
+            activeAttackId,
+            attackerStats != null ? attackerStats.gameObject : gameObject,
+            attackerStats,
+            weapon.weaponType,
+            origin,
+            hitPoint,
+            hitDirection,
+            weapon.physicalDamage * hitDamageMultiplier,
+            weapon.magicDamage * hitDamageMultiplier,
+            weapon.armorPiercing,
+            FeedbackPayload.FromWeapon(weapon),
+            true);
+        HitResult result = contact.damageable.ApplyDamage(context);
+        if (!result.accepted)
+        {
+            return false;
+        }
+
+        RegisterDamagedTarget(contact.ownerId, weapon);
+        CombatFeedbackSystem _ = CombatFeedbackSystem.Instance;
+        CombatFeedbackBus.PublishHit(context, result);
+
+        if (weapon.weaponType == WeaponType.Sword)
+        {
+            EmitSwordHitBurst(hitPoint);
+        }
+        else if (weapon.weaponType == WeaponType.Spear && weapon.useSweepArc)
+        {
+            EmitSpearSweepHitBurst(hitPoint, spearTipHit);
+        }
+        else
+        {
+            EmitGenericHitBurst(hitPoint, weapon.weaponType);
+        }
+        return true;
+    }
+
+    private bool CanDamageTarget(int ownerId, WeaponDefinition weapon)
+    {
+        if (!AllowsRepeatHit(weapon))
+        {
+            return !damagedTargetIds.Contains(ownerId);
+        }
+
+        repeatHitCounts.TryGetValue(ownerId, out int hitCount);
+        if (hitCount >= SpearRepeatHitLimit)
+        {
+            return false;
+        }
+
+        return !nextRepeatHitTimes.TryGetValue(ownerId, out float nextTime) || Time.time >= nextTime;
+    }
+
+    private void RegisterDamagedTarget(int ownerId, WeaponDefinition weapon)
+    {
+        if (!AllowsRepeatHit(weapon))
+        {
+            damagedTargetIds.Add(ownerId);
+            return;
+        }
+
+        repeatHitCounts.TryGetValue(ownerId, out int hitCount);
+        repeatHitCounts[ownerId] = hitCount + 1;
+        nextRepeatHitTimes[ownerId] = Time.time + SpearRepeatHitInterval;
+    }
+
+    private bool AllowsRepeatHit(WeaponDefinition weapon)
+    {
+        return weapon != null && weapon.weaponType == WeaponType.Spear && weapon.useSweepArc;
+    }
+
+    private void ClearRepeatHitState()
+    {
+        repeatHitCounts.Clear();
+        nextRepeatHitTimes.Clear();
+    }
+
+    private bool TryResolveDamageable(Collider2D hit, out IDamageable damageable, out int ownerId)
+    {
+        damageable = null;
+        ownerId = 0;
+        if (hit == null)
+        {
+            return false;
+        }
+
+        DamageableHurtbox hurtbox = hit.GetComponent<DamageableHurtbox>() ?? hit.GetComponentInParent<DamageableHurtbox>();
+        if (hurtbox != null && hurtbox.Owner != null)
+        {
+            damageable = hurtbox.Owner;
+            ownerId = hurtbox.OwnerId;
+            return true;
+        }
+
+        MonoBehaviour[] behaviours = hit.GetComponents<MonoBehaviour>();
+        for (int i = 0; i < behaviours.Length; i++)
+        {
+            if (behaviours[i] is IDamageable directDamageable)
             {
-                if (attackerStats == null)
-                {
-                    attackerStats = GetComponentInParent<CharacterStats>();
-                }
+                damageable = directDamageable;
+                ownerId = behaviours[i].gameObject.GetInstanceID();
+                return true;
+            }
+        }
 
-                Vector2 hitPoint = GetHitPoint(hit);
-                Vector2 origin = transform.position;
-                Vector2 hitDirection = hitPoint - origin;
-                if (hitDirection.sqrMagnitude < 0.001f)
-                {
-                    hitDirection = transform.up;
-                }
-
-                bool spearTipHit = IsAttachedSpearTipHit(hit, weapon);
-                float damage = weapon.damage * GetAttachedHitDamageMultiplier(hit, weapon);
-                DamageContext context = new DamageContext(
-                    activeAttackId,
-                    attackerStats != null ? attackerStats.gameObject : gameObject,
-                    attackerStats,
-                    weapon.weaponType,
-                    origin,
-                    hitPoint,
-                    hitDirection,
-                    damage,
-                    weapon.armorPiercing,
-                    FeedbackPayload.FromWeapon(weapon));
-                HitResult result = damageable.ApplyDamage(context);
-                if (!result.accepted)
-                {
-                    continue;
-                }
-
-                damagedColliders.Add(hit);
-                CombatFeedbackSystem _ = CombatFeedbackSystem.Instance;
-                CombatFeedbackBus.PublishHit(context, result);
-
-                if (weapon.weaponType == WeaponType.Sword)
-                {
-                    EmitSwordHitBurst(hitPoint);
-                }
-                else if (weapon.weaponType == WeaponType.Spear && weapon.useSweepArc)
-                {
-                    EmitSpearSweepHitBurst(hitPoint, spearTipHit);
-                }
-                else
-                {
-                    EmitGenericHitBurst(hitPoint, weapon.weaponType);
-                }
+        MonoBehaviour[] parentBehaviours = hit.GetComponentsInParent<MonoBehaviour>();
+        for (int i = 0; i < parentBehaviours.Length; i++)
+        {
+            if (parentBehaviours[i] is IDamageable parentDamageable)
+            {
+                damageable = parentDamageable;
+                ownerId = parentBehaviours[i].gameObject.GetInstanceID();
                 return true;
             }
         }
@@ -448,18 +625,16 @@ public class AttackWaveEffect : MonoBehaviour
             return DamageSpellOverlap(to);
         }
 
-        ContactFilter2D filter = new ContactFilter2D();
-        filter.useLayerMask = true;
-        filter.layerMask = activeTargetLayers;
-        filter.useTriggers = true;
+        overlapFilter.useLayerMask = true;
+        overlapFilter.layerMask = activeTargetLayers;
+        overlapFilter.useTriggers = true;
 
-        RaycastHit2D[] results = new RaycastHit2D[32];
-        int hitCount = Physics2D.CircleCast(from, projectileRadius, delta / distance, filter, results, distance);
+        int hitCount = Physics2D.CircleCast(from, projectileRadius, delta / distance, overlapFilter, projectileCastResults, distance);
         float bestDistance = float.MaxValue;
         Collider2D bestHit = null;
         for (int i = 0; i < hitCount; i++)
         {
-            Collider2D hit = results[i].collider;
+            Collider2D hit = projectileCastResults[i].collider;
             if (!IsValidProjectileHit(hit))
             {
                 continue;
@@ -470,7 +645,7 @@ public class AttackWaveEffect : MonoBehaviour
                 continue;
             }
 
-            float hitDistance = results[i].distance;
+            float hitDistance = projectileCastResults[i].distance;
             if (hitDistance < bestDistance)
             {
                 bestDistance = hitDistance;
@@ -493,12 +668,16 @@ public class AttackWaveEffect : MonoBehaviour
 
     private bool DamageSpellOverlap(Vector2 position)
     {
-        Collider2D[] results = Physics2D.OverlapCircleAll(position, projectileRadius, activeTargetLayers);
+        overlapFilter.useLayerMask = true;
+        overlapFilter.layerMask = activeTargetLayers;
+        overlapFilter.useTriggers = true;
+
+        int hitCount = Physics2D.OverlapCircle(position, projectileRadius, overlapFilter, spellOverlapResults);
         float bestDistance = float.MaxValue;
         Collider2D bestHit = null;
-        for (int i = 0; i < results.Length; i++)
+        for (int i = 0; i < hitCount; i++)
         {
-            Collider2D hit = results[i];
+            Collider2D hit = spellOverlapResults[i];
             if (!IsValidProjectileHit(hit))
             {
                 continue;
@@ -560,15 +739,7 @@ public class AttackWaveEffect : MonoBehaviour
             return false;
         }
 
-        foreach (MonoBehaviour behaviour in hit.GetComponents<MonoBehaviour>())
-        {
-            if (behaviour is IDamageable)
-            {
-                return true;
-            }
-        }
-
-        return false;
+        return TryResolveDamageable(hit, out _, out _);
     }
 
     private Vector2 GetHitPoint(Collider2D hit)
@@ -1074,6 +1245,16 @@ public class AttackWaveEffect : MonoBehaviour
         ParticleSystemRenderer particleRenderer = particleObject.GetComponent<ParticleSystemRenderer>();
         particleRenderer.sortingOrder = 45;
         particleRenderer.material = new Material(Shader.Find("Sprites/Default"));
+    }
+
+    public void PushHitStop(float duration)
+    {
+        if (duration <= 0f)
+        {
+            return;
+        }
+
+        localHitStopUntil = Mathf.Max(localHitStopUntil, Time.unscaledTime + duration);
     }
 
     private void ConfigureParticleDefaults(WeaponType weaponType)

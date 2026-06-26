@@ -1,0 +1,28 @@
+{
+  "shops": [
+    {
+      "shopTag": "normalShop",
+      "allowCursed": false,
+      "entries": [
+        { "id": "item_small_heal", "type": "item", "basePrice": 40, "weight": 0.85, "priceMultiplier": 1.0, "minHostilityLevel": 0 },
+        { "id": "item_mana_shard", "type": "item", "basePrice": 55, "weight": 0.65, "priceMultiplier": 1.0, "minHostilityLevel": 0 },
+        { "id": "material_iron_shard", "type": "material", "basePrice": 25, "weight": 0.9, "priceMultiplier": 1.0, "minHostilityLevel": 0 },
+        { "id": "material_signal_shard", "type": "material", "basePrice": 35, "weight": 0.45, "priceMultiplier": 1.0, "minHostilityLevel": 0 },
+        { "id": "material_arcane_splinter", "type": "material", "basePrice": 75, "weight": 0.22, "priceMultiplier": 1.0, "minHostilityLevel": 0 },
+        { "id": "skill_dash_spark", "type": "skill", "basePrice": 160, "weight": 0.22, "priceMultiplier": 1.0, "minHostilityLevel": 0 }
+      ]
+    },
+    {
+      "shopTag": "blackMarket",
+      "allowCursed": true,
+      "entries": [
+        { "id": "item_blood_lantern", "type": "item", "basePrice": 130, "weight": 0.5, "priceMultiplier": 1.0, "minHostilityLevel": 0 },
+        { "id": "blackmarket_cursed_edge", "type": "item", "basePrice": 220, "weight": 0.35, "priceMultiplier": 1.0, "minHostilityLevel": 0, "allowCursed": true },
+        { "id": "material_signal_shard", "type": "material", "basePrice": 35, "weight": 0.5, "priceMultiplier": 1.25, "minHostilityLevel": 0 },
+        { "id": "material_arcane_splinter", "type": "material", "basePrice": 75, "weight": 0.45, "priceMultiplier": 1.15, "minHostilityLevel": 0 },
+        { "id": "material_guard_plate", "type": "material", "basePrice": 90, "weight": 0.34, "priceMultiplier": 1.15, "minHostilityLevel": 0 },
+        { "id": "skill_dash_spark", "type": "skill", "basePrice": 160, "weight": 0.3, "priceMultiplier": 1.15, "minHostilityLevel": 0 }
+      ]
+    }
+  ]
+}

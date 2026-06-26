@@ -9,6 +9,11 @@ public static class WeaponTiming
             return 0f;
         }
 
+        if (weapon.primaryAction.useCustomTiming)
+        {
+            return Mathf.Max(0f, weapon.primaryAction.windup);
+        }
+
         if (weapon.weaponType == WeaponType.Sword)
         {
             return 0.035f;
@@ -27,6 +32,11 @@ public static class WeaponTiming
         if (weapon == null)
         {
             return 0f;
+        }
+
+        if (weapon.primaryAction.useCustomTiming)
+        {
+            return Mathf.Max(0.01f, weapon.primaryAction.active);
         }
 
         switch (weapon.weaponType)
@@ -53,11 +63,26 @@ public static class WeaponTiming
             return 0f;
         }
 
+        if (weapon.primaryAction.useCustomTiming)
+        {
+            return Mathf.Max(0f, weapon.primaryAction.recovery);
+        }
+
         if (weapon.weaponType == WeaponType.Sword)
         {
             return 0.035f;
         }
 
         return weapon.weaponType == WeaponType.Spell ? 0.24f : Mathf.Max(0.04f, weapon.recovery * 0.45f);
+    }
+
+    public static float GetInputBuffer(WeaponDefinition weapon, bool special)
+    {
+        if (weapon != null && !special && weapon.primaryAction.useCustomTiming && weapon.primaryAction.inputBuffer > 0f)
+        {
+            return weapon.primaryAction.inputBuffer;
+        }
+
+        return special ? 0.18f : 0.16f;
     }
 }

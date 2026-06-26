@@ -9,10 +9,12 @@ public readonly struct DamageContext
     public readonly Vector2 origin;
     public readonly Vector2 hitPoint;
     public readonly Vector2 hitDirection;
-    public readonly float baseDamage;
+    public readonly float physicalDamage;
+    public readonly float magicDamage;
     public readonly float armorPiercing;
     public readonly FeedbackPayload feedback;
     public readonly bool canCrit;
+    public float baseDamage => physicalDamage + magicDamage;
 
     public DamageContext(
         int attackId,
@@ -22,7 +24,8 @@ public readonly struct DamageContext
         Vector2 origin,
         Vector2 hitPoint,
         Vector2 hitDirection,
-        float baseDamage,
+        float physicalDamage,
+        float magicDamage,
         float armorPiercing,
         FeedbackPayload feedback,
         bool canCrit = true)
@@ -34,7 +37,8 @@ public readonly struct DamageContext
         this.origin = origin;
         this.hitPoint = hitPoint;
         this.hitDirection = hitDirection.sqrMagnitude > 0.001f ? hitDirection.normalized : Vector2.up;
-        this.baseDamage = Mathf.Max(0f, baseDamage);
+        this.physicalDamage = Mathf.Max(0f, physicalDamage);
+        this.magicDamage = Mathf.Max(0f, magicDamage);
         this.armorPiercing = Mathf.Max(0f, armorPiercing);
         this.feedback = feedback;
         this.canCrit = canCrit;
@@ -43,6 +47,6 @@ public readonly struct DamageContext
     public static DamageContext Legacy(float amount, float armorPiercing, Vector2 hitSource, CharacterStats attacker)
     {
         Vector2 direction = hitSource.sqrMagnitude > 0.001f ? -hitSource.normalized : Vector2.up;
-        return new DamageContext(0, attacker != null ? attacker.gameObject : null, attacker, WeaponType.Knife, hitSource, hitSource, direction, amount, armorPiercing, FeedbackPayload.None);
+        return new DamageContext(0, attacker != null ? attacker.gameObject : null, attacker, WeaponType.Knife, hitSource, hitSource, direction, amount, 0f, armorPiercing, FeedbackPayload.None);
     }
 }

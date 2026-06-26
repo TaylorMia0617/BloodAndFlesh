@@ -4,7 +4,7 @@ using UnityEngine.InputSystem;
 
 [RequireComponent(typeof(PlayerInput))]
 [RequireComponent(typeof(EquippedWeaponView))]
-public partial class PlayerCombatController : MonoBehaviour, IWeaponExecutionContext
+public partial class PlayerCombatController : MonoBehaviour, IWeaponExecutionContext, ILocalFreezable
 {
     public enum HotbarSelectionMode
     {
@@ -16,6 +16,8 @@ public partial class PlayerCombatController : MonoBehaviour, IWeaponExecutionCon
     [SerializeField] private WeaponDefinition startingWeapon;
     [SerializeField] private Transform attackOrigin;
     [SerializeField] private AttackWaveEffect attackWaveEffect;
+    [SerializeField] private float defaultAttackBufferSeconds = 0.16f;
+    [SerializeField] private float defaultSpecialBufferSeconds = 0.18f;
 
     public bool IsAttacking => !combatState.IsReady;
     public bool BlocksMovement => combatState.BlocksMovement;
@@ -46,11 +48,19 @@ public partial class PlayerCombatController : MonoBehaviour, IWeaponExecutionCon
     private int lastSpecialInputFrame = -1;
     private Vector2 lastAimDirection = Vector2.right;
     private Vector2 pendingAimDirection = Vector2.right;
-    private bool pendingAttackInput;
-    private bool pendingSpecialInput;
+    private BufferedAttackCommand? bufferedAttack;
+    private Coroutine bufferedAttackRoutine;
+    private float localHitStopUntil;
     private readonly CombatStateMachine combatState = new CombatStateMachine();
     private HotbarSelectionMode hotbarSelection = HotbarSelectionMode.Weapon;
     private int selectedItemSlot = -1;
+
+    private struct BufferedAttackCommand
+    {
+        public bool special;
+        public Vector2 direction;
+        public float expiresAt;
+    }
 
     public float AttackCooldownRemaining => Mathf.Max(0f, nextAttackTime - Time.time);
     public float AttackCooldownDuration => currentWeapon != null ? Mathf.Max(0.001f, currentWeapon.cooldown) : 0.001f;
@@ -58,6 +68,7 @@ public partial class PlayerCombatController : MonoBehaviour, IWeaponExecutionCon
     public float SpecialCooldownDuration => currentWeapon != null ? Mathf.Max(0.001f, Mathf.Max(currentWeapon.cooldown, WeaponSpecialConfigDatabase.Get(currentWeapon.weaponType).cooldown)) : 0.001f;
     public HotbarSelectionMode CurrentHotbarSelection => hotbarSelection;
     public int SelectedItemSlot => selectedItemSlot;
+    private bool IsLocallyHitStopped => Time.unscaledTime < localHitStopUntil;
 
     private void Awake()
     {
@@ -120,7 +131,8 @@ public partial class PlayerCombatController : MonoBehaviour, IWeaponExecutionCon
         WeaponDefinition weapon = ScriptableObject.CreateInstance<WeaponDefinition>();
         weapon.weaponType = WeaponType.Knife;
         weapon.displayName = "Knife";
-        weapon.damage = 10f;
+        weapon.physicalDamage = 10f;
+        weapon.magicDamage = 0f;
         weapon.armorPiercing = 1.5f;
         weapon.attackRange = 1.2f;
         weapon.attackRadius = 0.45f;
@@ -190,6 +202,9 @@ public partial class PlayerCombatController : MonoBehaviour, IWeaponExecutionCon
         {
             interactAction.performed -= OnInteract;
         }
+
+        bufferedAttack = null;
+        bufferedAttackRoutine = null;
     }
 
     private void Update()
@@ -203,6 +218,8 @@ public partial class PlayerCombatController : MonoBehaviour, IWeaponExecutionCon
         {
             TrySpecialAttackInput();
         }
+
+        TryConsumeBufferedAttack();
     }
 
     public void SetWeapon(WeaponDefinition weapon)
@@ -319,7 +336,8 @@ public partial class PlayerCombatController : MonoBehaviour, IWeaponExecutionCon
 
     private void OnInteract(InputAction.CallbackContext context)
     {
-        if (SafeRoomManager.Instance.TryInteractCurrent(transform))
+        SafeRoomManager safeRoomManager = SafeRoomManager.Instance;
+        if (safeRoomManager != null && safeRoomManager.TryInteractCurrent(transform))
         {
             return;
         }
@@ -363,6 +381,7 @@ public partial class PlayerCombatController : MonoBehaviour, IWeaponExecutionCon
         }
 
         QueueAttack(false);
+        TryConsumeBufferedAttack();
         return true;
     }
 
@@ -402,6 +421,7 @@ public partial class PlayerCombatController : MonoBehaviour, IWeaponExecutionCon
         }
 
         QueueAttack(true);
+        TryConsumeBufferedAttack();
         return true;
     }
 
@@ -442,30 +462,53 @@ public partial class PlayerCombatController : MonoBehaviour, IWeaponExecutionCon
 
     private void QueueAttack(bool special)
     {
-        if (special)
+        Vector2 attackDirection = pendingAimDirection.sqrMagnitude > 0.001f ? pendingAimDirection.normalized : lastAimDirection;
+        float fallbackWindow = special ? defaultSpecialBufferSeconds : defaultAttackBufferSeconds;
+        float configuredWindow = currentWeapon != null ? WeaponTiming.GetInputBuffer(currentWeapon, special) : fallbackWindow;
+        bufferedAttack = new BufferedAttackCommand
         {
-            if (pendingSpecialInput)
-            {
-                return;
-            }
-
-            pendingSpecialInput = true;
-            StartCoroutine(QueuedAttackRoutine(true));
-            return;
-        }
-
-        if (pendingAttackInput)
-        {
-            return;
-        }
-
-        pendingAttackInput = true;
-        StartCoroutine(QueuedAttackRoutine(false));
+            special = special,
+            direction = attackDirection,
+            expiresAt = Time.time + Mathf.Max(0.01f, configuredWindow > 0f ? configuredWindow : fallbackWindow)
+        };
     }
 
-    private IEnumerator QueuedAttackRoutine(bool special)
+    private void TryConsumeBufferedAttack()
     {
-        Vector2 attackDirection = pendingAimDirection.sqrMagnitude > 0.001f ? pendingAimDirection.normalized : lastAimDirection;
+        if (!bufferedAttack.HasValue || bufferedAttackRoutine != null)
+        {
+            return;
+        }
+
+        BufferedAttackCommand command = bufferedAttack.Value;
+        if (Time.time > command.expiresAt)
+        {
+            bufferedAttack = null;
+            return;
+        }
+
+        if (!CanConsumeBufferedAttack(command))
+        {
+            return;
+        }
+
+        bufferedAttack = null;
+        bufferedAttackRoutine = StartCoroutine(ExecuteBufferedAttackRoutine(command));
+    }
+
+    private bool CanConsumeBufferedAttack(BufferedAttackCommand command)
+    {
+        if (currentWeapon == null || IsAttacking || (inputManager != null && inputManager.IsStunned))
+        {
+            return false;
+        }
+
+        return command.special ? Time.time >= nextSpecialTime : Time.time >= nextAttackTime;
+    }
+
+    private IEnumerator ExecuteBufferedAttackRoutine(BufferedAttackCommand command)
+    {
+        Vector2 attackDirection = command.direction.sqrMagnitude > 0.001f ? command.direction.normalized : lastAimDirection;
         if (inputManager != null)
         {
             yield return inputManager.FaceDirectionBeforeAttack(attackDirection);
@@ -473,22 +516,21 @@ public partial class PlayerCombatController : MonoBehaviour, IWeaponExecutionCon
 
         if (inputManager != null && inputManager.IsStunned)
         {
-            pendingAttackInput = false;
-            pendingSpecialInput = false;
+            bufferedAttackRoutine = null;
             yield break;
         }
 
         CommitAimDirection(attackDirection);
-        if (special)
+        if (command.special)
         {
-            pendingSpecialInput = false;
             TrySpecialAttack(attackDirection);
         }
         else
         {
-            pendingAttackInput = false;
             TryAttack(attackDirection);
         }
+
+        bufferedAttackRoutine = null;
     }
 
     private IEnumerator AttackRoutine(WeaponDefinition weapon, Vector2 attackDirection)
@@ -514,23 +556,52 @@ public partial class PlayerCombatController : MonoBehaviour, IWeaponExecutionCon
 
         if (windup > 0f)
         {
-            yield return new WaitForSeconds(windup);
+            yield return WaitCombatSeconds(windup);
         }
 
         combatState.SetPhase(CombatPhase.Active);
 
         if (active > 0f)
         {
-            yield return new WaitForSeconds(active);
+            yield return WaitCombatSeconds(active);
         }
 
         combatState.SetPhase(CombatPhase.Recovery);
         if (recovery > 0f)
         {
-            yield return new WaitForSeconds(recovery);
+            yield return WaitCombatSeconds(recovery);
         }
 
         EndCombatAction();
+        TryConsumeBufferedAttack();
+    }
+
+    private IEnumerator WaitCombatSeconds(float duration)
+    {
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            if (!IsLocallyHitStopped)
+            {
+                elapsed += Time.deltaTime;
+            }
+
+            yield return null;
+        }
+    }
+
+    public void PushHitStop(float duration)
+    {
+        if (duration <= 0f)
+        {
+            return;
+        }
+
+        localHitStopUntil = Mathf.Max(localHitStopUntil, Time.unscaledTime + duration);
+        if (playerBody != null)
+        {
+            playerBody.velocity = Vector2.zero;
+        }
     }
 
     public bool ExecutePrimaryAttack(WeaponDefinition weapon, Vector2 attackDirection)

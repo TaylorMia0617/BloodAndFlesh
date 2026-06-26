@@ -17,12 +17,109 @@ public class CombatContractTests
             attacker.critChance = 0f;
             defender.armor = 3f;
 
-            DamageResult result = DamageCalculator.Calculate(attacker, defender, 10f, 1f);
+            DamageResult result = DamageCalculator.Calculate(attacker, defender, 10f, 0f, 1f);
 
             Assert.AreEqual(30f, result.rawDamage);
+            Assert.AreEqual(30f, result.rawPhysicalDamage);
+            Assert.AreEqual(0f, result.rawMagicDamage);
             Assert.AreEqual(28f, result.armorReducedDamage);
+            Assert.AreEqual(28f, result.physicalDamage);
+            Assert.AreEqual(0f, result.magicDamage);
             Assert.AreEqual(28f, result.finalDamage);
             Assert.IsFalse(result.isCritical);
+        }
+        finally
+        {
+            Object.DestroyImmediate(attackerObject);
+            Object.DestroyImmediate(defenderObject);
+        }
+    }
+
+    [Test]
+    public void MagicDamageIgnoresArmorAndUsesMagicImmunity()
+    {
+        GameObject attackerObject = new GameObject("attacker");
+        GameObject defenderObject = new GameObject("defender");
+        try
+        {
+            CharacterStats attacker = attackerObject.AddComponent<CharacterStats>();
+            CharacterStats defender = defenderObject.AddComponent<CharacterStats>();
+            attacker.attack = 5f;
+            attacker.damageMultiplier = 2f;
+            attacker.critChance = 0f;
+            defender.armor = 999f;
+            defender.magicImmunity = 0.25f;
+
+            DamageResult result = DamageCalculator.Calculate(attacker, defender, 0f, 10f, 0f);
+
+            Assert.AreEqual(30f, result.rawDamage);
+            Assert.AreEqual(0f, result.rawPhysicalDamage);
+            Assert.AreEqual(30f, result.rawMagicDamage);
+            Assert.AreEqual(22.5f, result.armorReducedDamage);
+            Assert.AreEqual(0f, result.physicalDamage);
+            Assert.AreEqual(22.5f, result.magicDamage);
+            Assert.AreEqual(22.5f, result.finalDamage);
+        }
+        finally
+        {
+            Object.DestroyImmediate(attackerObject);
+            Object.DestroyImmediate(defenderObject);
+        }
+    }
+
+    [Test]
+    public void PhysicalDamageIgnoresMagicImmunity()
+    {
+        GameObject attackerObject = new GameObject("attacker");
+        GameObject defenderObject = new GameObject("defender");
+        try
+        {
+            CharacterStats attacker = attackerObject.AddComponent<CharacterStats>();
+            CharacterStats defender = defenderObject.AddComponent<CharacterStats>();
+            attacker.attack = 5f;
+            attacker.damageMultiplier = 2f;
+            attacker.critChance = 0f;
+            defender.armor = 3f;
+            defender.magicImmunity = 0.95f;
+
+            DamageResult result = DamageCalculator.Calculate(attacker, defender, 10f, 0f, 1f);
+
+            Assert.AreEqual(30f, result.rawDamage);
+            Assert.AreEqual(30f, result.rawPhysicalDamage);
+            Assert.AreEqual(0f, result.rawMagicDamage);
+            Assert.AreEqual(28f, result.armorReducedDamage);
+            Assert.AreEqual(28f, result.physicalDamage);
+            Assert.AreEqual(0f, result.magicDamage);
+            Assert.AreEqual(28f, result.finalDamage);
+        }
+        finally
+        {
+            Object.DestroyImmediate(attackerObject);
+            Object.DestroyImmediate(defenderObject);
+        }
+    }
+
+    [Test]
+    public void MixedDamageKeepsPhysicalAndMagicResultsSeparate()
+    {
+        GameObject attackerObject = new GameObject("attacker");
+        GameObject defenderObject = new GameObject("defender");
+        try
+        {
+            CharacterStats attacker = attackerObject.AddComponent<CharacterStats>();
+            CharacterStats defender = defenderObject.AddComponent<CharacterStats>();
+            attacker.damageMultiplier = 1f;
+            attacker.critChance = 0f;
+            defender.armor = 3f;
+            defender.magicImmunity = 0.25f;
+
+            DamageResult result = DamageCalculator.Calculate(attacker, defender, 10f, 8f, 1f);
+
+            Assert.AreEqual(10f, result.rawPhysicalDamage);
+            Assert.AreEqual(8f, result.rawMagicDamage);
+            Assert.AreEqual(8f, result.physicalDamage);
+            Assert.AreEqual(6f, result.magicDamage);
+            Assert.AreEqual(14f, result.finalDamage);
         }
         finally
         {
@@ -210,9 +307,27 @@ public class CombatContractTests
         Assert.AreEqual("1-1", config.label);
         Assert.AreEqual(100, config.mapWidth);
         Assert.AreEqual(80, config.mapHeight);
-        Assert.AreEqual(6, config.initialEnemySpawnCount);
-        Assert.AreEqual(20, config.enemyBudget);
+        Assert.AreEqual(15, config.initialEnemySpawnCount);
+        Assert.AreEqual(30, config.enemyBudget);
         Assert.AreEqual(3.5f, config.hostilitySpawnInterval, 0.001f);
+        Assert.AreEqual(6, config.spawnDenCount);
+        Assert.AreEqual("default", config.spawnDenPoolId);
+        Assert.IsTrue(config.allowDuplicateSpawnDens);
+        Assert.NotNull(config.fixedScouts);
+        Assert.AreEqual(1, config.fixedScouts.Length);
+        Assert.AreEqual("Scout", config.fixedScouts[0].scoutName);
+        Assert.AreEqual(2, config.fixedScouts[0].count);
+        Assert.AreEqual(4, config.fixedScouts[0].patrolRoute.Length);
+        Assert.AreEqual(22, config.fixedScouts[0].patrolRoute[0].x);
+        Assert.AreEqual(40, config.fixedScouts[0].patrolRoute[0].y);
+    }
+
+    [Test]
+    public void EnemyConfigCanResolveScoutDisplayNameToSentinel()
+    {
+        Assert.AreEqual(EnemyArchetype.Sentinel, EnemyConfigDatabase.ResolveArchetypeName("Scout"));
+        Assert.AreEqual(EnemyArchetype.Sentinel, EnemyConfigDatabase.ResolveArchetypeName("Sentinel"));
+        Assert.AreEqual(EnemyArchetype.Sentinel, EnemyConfigDatabase.ResolveArchetypeName("UnknownScoutName"));
     }
 
     [Test]
@@ -223,6 +338,7 @@ public class CombatContractTests
 
         Assert.AreEqual(20f, sentinel.visual.range);
         Assert.AreEqual(12f, sentinel.hostility.range);
+        Assert.AreEqual(30f, sentinel.hostility.signalRadius);
         Assert.IsTrue(sentinel.hostility.ignoresLineOfSight);
         Assert.AreEqual(5f, shield.visual.range);
         Assert.AreEqual(4f, shield.hostility.range);
@@ -232,12 +348,16 @@ public class CombatContractTests
     public void WeaponConfigDatabaseReadsWeaponNumbers()
     {
         WeaponConfig sword = WeaponConfigDatabase.Get(WeaponType.Sword);
+        WeaponConfig spell = WeaponConfigDatabase.Get(WeaponType.Spell);
 
         Assert.AreEqual("Sword", sword.displayName);
-        Assert.AreEqual(16f, sword.damage);
+        Assert.AreEqual(10f, sword.physicalDamage);
+        Assert.AreEqual(0f, sword.magicDamage);
         Assert.AreEqual(2.5f, sword.armorPiercing);
         Assert.AreEqual(1.6f, sword.attackRange);
         Assert.AreEqual(0.85f, sword.cooldown);
+        Assert.AreEqual(0f, spell.physicalDamage);
+        Assert.AreEqual(8f, spell.magicDamage);
     }
 
     [Test]
@@ -248,12 +368,59 @@ public class CombatContractTests
         {
             Assert.AreEqual(WeaponType.Knife, weapon.weaponType);
             Assert.AreEqual("Knife", weapon.displayName);
-            Assert.AreEqual(10f, weapon.damage);
+            Assert.AreEqual(15f, weapon.physicalDamage);
+            Assert.AreEqual(0f, weapon.magicDamage);
             Assert.AreEqual(1.2f, weapon.attackRange);
         }
         finally
         {
             Object.DestroyImmediate(weapon);
+        }
+    }
+
+    [Test]
+    public void EnemyConfigReadsMagicDefenseAndAttackType()
+    {
+        EnemyConfig attacker = EnemyConfigDatabase.Get(EnemyArchetype.Attacker);
+        EnemyConfig ranged = EnemyConfigDatabase.Get(EnemyArchetype.Ranged);
+
+        Assert.AreEqual(0f, attacker.magicImmunity);
+        Assert.AreEqual(8f, attacker.physicalAttack);
+        Assert.AreEqual(0f, attacker.magicAttack);
+        Assert.AreEqual(0.2f, ranged.magicImmunity);
+        Assert.AreEqual(0f, ranged.physicalAttack);
+        Assert.AreEqual(4f, ranged.magicAttack);
+    }
+
+    [Test]
+    public void EnemySpawnFactoryDoesNotScaleStatsWithWorldHostility()
+    {
+        GameObject parent = new GameObject("enemy_parent");
+        GameObject player = new GameObject("player");
+        GameObject enemy = null;
+        try
+        {
+            StageConfig highHostilityStage = new StageConfig { worldHostility = 10f };
+            WorldHostilityDirector director = new WorldHostilityDirector(highHostilityStage);
+            EnemyConfig config = EnemyConfigDatabase.Get(EnemyArchetype.Attacker);
+
+            enemy = EnemySpawnFactory.CreateEnemy(parent.transform, "enemy", Vector3.zero, EnemyArchetype.Attacker, player.transform, null, director);
+            CharacterStats stats = enemy.GetComponent<CharacterStats>();
+
+            Assert.AreEqual(config.maxHealth, stats.maxHealth, 0.001f);
+            Assert.AreEqual(config.physicalAttack, stats.physicalAttack, 0.001f);
+            Assert.AreEqual(config.magicAttack, stats.magicAttack, 0.001f);
+        }
+        finally
+        {
+            if (enemy != null)
+            {
+                Object.DestroyImmediate(enemy);
+            }
+
+            Object.DestroyImmediate(parent);
+            Object.DestroyImmediate(player);
+            EnemyRegistry.Clear();
         }
     }
 

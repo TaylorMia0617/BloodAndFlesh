@@ -10,6 +10,7 @@ public class PrototypeDamageable : MonoBehaviour, IDamageable
     private SpriteRenderer spriteRenderer;
     private CharacterStats stats;
     private SimpleEnemyAI enemyAI;
+    private KnockbackReceiver knockbackReceiver;
     private HitVolumeFeedback volumeFeedback;
     private Color baseColor;
     private float flashUntil;
@@ -29,6 +30,7 @@ public class PrototypeDamageable : MonoBehaviour, IDamageable
         }
         spriteRenderer = GetComponent<SpriteRenderer>();
         enemyAI = GetComponent<SimpleEnemyAI>();
+        knockbackReceiver = GetComponent<KnockbackReceiver>();
         volumeFeedback = GetComponent<HitVolumeFeedback>();
         if (spriteRenderer != null)
         {
@@ -82,12 +84,26 @@ public class PrototypeDamageable : MonoBehaviour, IDamageable
         }
         if (enemyAI != null)
         {
-            enemyAI.OnDamaged(source, context.feedback.knockbackDistance);
+            enemyAI.OnDamaged(source, context.feedback.knockbackDistance, context.feedback.knockbackDuration);
+        }
+
+        if (knockbackReceiver == null)
+        {
+            knockbackReceiver = GetComponent<KnockbackReceiver>();
+        }
+        if (knockbackReceiver != null)
+        {
+            knockbackReceiver.Apply(source, context.feedback.knockbackDistance, context.feedback.knockbackDuration);
         }
 
         bool killed = (stats != null && !stats.IsAlive) || currentHealth <= 0f;
         if (killed)
         {
+            if (wasAlive && enemyAI != null)
+            {
+                DropTableResolver.ResolveEnemyDrops(EnemyConfigDatabase.Get(enemyAI.Archetype), transform.position);
+            }
+
             gameObject.SetActive(false);
         }
 

@@ -28,6 +28,17 @@ public readonly struct FeedbackPayload
             return None;
         }
 
+        if (weapon.primaryAction.useCustomTiming)
+        {
+            return new FeedbackPayload(
+                weapon.primaryAction.hitStopDuration > 0f ? weapon.primaryAction.hitStopDuration : weapon.hitStopDuration,
+                weapon.primaryAction.hitStopTimeScale > 0f ? weapon.primaryAction.hitStopTimeScale : weapon.hitStopTimeScale,
+                weapon.primaryAction.knockbackDistance > 0f ? weapon.primaryAction.knockbackDistance : weapon.knockbackDistance,
+                weapon.primaryAction.knockbackDuration > 0f ? weapon.primaryAction.knockbackDuration : weapon.knockbackDuration,
+                weapon.feedbackIntensity,
+                weapon.primaryAction.cameraShake > 0f ? weapon.primaryAction.cameraShake : weapon.cameraShake);
+        }
+
         return new FeedbackPayload(
             weapon.hitStopDuration,
             weapon.hitStopTimeScale,

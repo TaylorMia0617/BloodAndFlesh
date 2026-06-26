@@ -32,6 +32,11 @@ public class SafeRoomPortal : MonoBehaviour
         }
 
         SafeRoomManager manager = SafeRoomManager.Instance;
+        if (manager == null)
+        {
+            return;
+        }
+
         switch (mode)
         {
             case PortalMode.DungeonExitToSafeRoom:

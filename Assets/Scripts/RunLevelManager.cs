@@ -16,6 +16,10 @@ public class RunLevelManager : MonoBehaviour
     [SerializeField] private int baseEnemyBudget = 20;
     [SerializeField] private int baseInitialEnemySpawnCount = 6;
     [SerializeField] private bool startEntranceCanReturnToSafeRoom;
+    [Header("World Hostility Debug")]
+    [SerializeField] private bool overrideWorldHostility;
+    [SerializeField] private float worldHostilityOverride = 1f;
+    [SerializeField] private float currentWorldHostilityPreview = 1f;
 
     private RunPhase phase = RunPhase.RunMap;
     private Vector3 lastMapReturnPosition;
@@ -46,6 +50,7 @@ public class RunLevelManager : MonoBehaviour
     public string StageLabel => $"{chapter}-{stage}";
     public RunPhase Phase => phase;
     public StageConfig CurrentStageConfig => StageConfigDatabase.Get(chapter, stage);
+    public float CurrentWorldHostility => overrideWorldHostility ? Mathf.Max(0f, worldHostilityOverride) : Mathf.Max(0f, CurrentStageConfig != null ? CurrentStageConfig.worldHostility : 1f);
     public int CurrentEnemyBudget => Mathf.Max(1, CurrentStageConfig != null ? CurrentStageConfig.enemyBudget : baseEnemyBudget + (chapter - 1) * 4 + (stage - 1) * 2);
     public int CurrentInitialEnemySpawnCount => Mathf.Max(0, CurrentStageConfig != null ? CurrentStageConfig.initialEnemySpawnCount : baseInitialEnemySpawnCount + (chapter - 1) * 2 + (stage - 1));
     public bool IsInSafeRoom => phase == RunPhase.SafeRoom;
@@ -61,6 +66,13 @@ public class RunLevelManager : MonoBehaviour
         }
 
         instance = this;
+        RefreshWorldHostilityPreview();
+    }
+
+    private void OnValidate()
+    {
+        worldHostilityOverride = Mathf.Max(0f, worldHostilityOverride);
+        RefreshWorldHostilityPreview();
     }
 
     public void StartNewRun()
@@ -70,6 +82,7 @@ public class RunLevelManager : MonoBehaviour
         phase = RunPhase.RunMap;
         startEntranceCanReturnToSafeRoom = false;
         lastMapReturnPosition = Vector3.zero;
+        RefreshWorldHostilityPreview();
     }
 
     public void AdvanceStage()
@@ -83,6 +96,7 @@ public class RunLevelManager : MonoBehaviour
 
         phase = RunPhase.RunMap;
         startEntranceCanReturnToSafeRoom = false;
+        RefreshWorldHostilityPreview();
     }
 
     public void EnterSafeRoom(Vector3 mapReturnPosition)
@@ -94,5 +108,11 @@ public class RunLevelManager : MonoBehaviour
     public void ExitSafeRoom()
     {
         phase = RunPhase.RunMap;
+        RefreshWorldHostilityPreview();
+    }
+
+    private void RefreshWorldHostilityPreview()
+    {
+        currentWorldHostilityPreview = CurrentWorldHostility;
     }
 }

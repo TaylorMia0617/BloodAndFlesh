@@ -1,0 +1,48 @@
+{
+  "entries": [
+    {
+      "id": "material_iron_shard",
+      "type": "material",
+      "name": "铁片",
+      "rarity": "common",
+      "iconResource": "",
+      "description": "用于武器强化的基础材料。",
+      "basePrice": 25,
+      "effects": [],
+      "maxStack": 99
+    },
+    {
+      "id": "material_signal_shard",
+      "type": "material",
+      "name": "哨戒残片",
+      "rarity": "common",
+      "iconResource": "",
+      "description": "带有微弱警戒回响的材料。",
+      "basePrice": 35,
+      "effects": [],
+      "maxStack": 99
+    },
+    {
+      "id": "material_arcane_splinter",
+      "type": "material",
+      "name": "秘法裂片",
+      "rarity": "rare",
+      "iconResource": "",
+      "description": "远程敌人残留的魔力碎片。",
+      "basePrice": 75,
+      "effects": [],
+      "maxStack": 99
+    },
+    {
+      "id": "material_guard_plate",
+      "type": "material",
+      "name": "守卫甲片",
+      "rarity": "rare",
+      "iconResource": "",
+      "description": "厚重敌人身上剥落的坚硬甲片。",
+      "basePrice": 90,
+      "effects": [],
+      "maxStack": 99
+    }
+  ]
+}

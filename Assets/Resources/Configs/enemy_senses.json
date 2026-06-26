@@ -12,7 +12,7 @@
       "visual": { "enabled": true, "range": 20.0, "rayStep": 0.08, "blockedByWalls": true },
       "hearing": { "enabled": true, "range": 10.0, "memorySeconds": 3.0, "sprintNoiseMultiplier": 1.8, "attackNoiseMultiplier": 2.5 },
       "magic": { "enabled": true, "range": 12.0, "spellCastMemorySeconds": 4.0, "detectsShields": true },
-      "hostility": { "enabled": true, "range": 12.0, "ignoresLineOfSight": true, "memorySeconds": 2.5, "signalRadius": 18.0 }
+      "hostility": { "enabled": true, "range": 12.0, "ignoresLineOfSight": true, "memorySeconds": 2.5, "signalRadius": 30.0 }
     },
     {
       "archetype": 2,

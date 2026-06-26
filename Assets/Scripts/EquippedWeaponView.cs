@@ -1,7 +1,7 @@
 using System.Collections;
 using UnityEngine;
 
-public class EquippedWeaponView : MonoBehaviour
+public class EquippedWeaponView : MonoBehaviour, ILocalFreezable
 {
     [SerializeField] private Transform weaponPivot;
     [SerializeField] private SpriteRenderer weaponRenderer;
@@ -9,7 +9,7 @@ public class EquippedWeaponView : MonoBehaviour
     [SerializeField] private SpriteRenderer[] outlineRenderers;
     [SerializeField] private TrailRenderer weaponTrail;
     [SerializeField] private int sortingOrder = 34;
-    [SerializeField] private bool showWeaponSpriteInWorld = false;
+    [SerializeField] private bool showWeaponSpriteInWorld = true;
     [SerializeField] private Transform bladeAnchor;
     [SerializeField] private Transform tipAnchor;
 
@@ -23,6 +23,8 @@ public class EquippedWeaponView : MonoBehaviour
     private Vector2 animationPivotOffset;
     private bool sweepAroundPlayer;
     private float sweepAroundPlayerRadius;
+    private float localHitStopUntil;
+    private bool IsLocallyHitStopped => Time.unscaledTime < localHitStopUntil;
 
     public Transform WeaponPivot
     {
@@ -53,11 +55,17 @@ public class EquippedWeaponView : MonoBehaviour
 
     private void Awake()
     {
+        showWeaponSpriteInWorld = true;
         EnsureVisuals();
     }
 
     private void LateUpdate()
     {
+        if (IsLocallyHitStopped)
+        {
+            return;
+        }
+
         UpdateWeaponTransform();
     }
 
@@ -72,7 +80,7 @@ public class EquippedWeaponView : MonoBehaviour
         }
 
         weaponRenderer.sprite = currentWeapon != null ? currentWeapon.weaponSprite : null;
-        weaponRenderer.enabled = false;
+        weaponRenderer.enabled = ShouldShowWorldSprite(currentWeapon);
         weaponRenderer.sortingOrder = sortingOrder;
         if (enchantRenderer != null)
         {
@@ -207,7 +215,7 @@ public class EquippedWeaponView : MonoBehaviour
         bool pureDelayWindup = weapon.weaponType == WeaponType.Knife || weapon.useSweepArc;
         if (pureDelayWindup && windup > 0f)
         {
-            yield return new WaitForSeconds(windup);
+            yield return WaitLocalSeconds(windup);
         }
         else
         {
@@ -233,7 +241,7 @@ public class EquippedWeaponView : MonoBehaviour
         float delay = Mathf.Max(0f, windup);
         if (delay > 0f)
         {
-            yield return new WaitForSeconds(delay);
+            yield return WaitLocalSeconds(delay);
         }
 
         sweepAroundPlayer = true;
@@ -241,6 +249,12 @@ public class EquippedWeaponView : MonoBehaviour
         float elapsed = 0f;
         while (elapsed < active)
         {
+            if (IsLocallyHitStopped)
+            {
+                yield return null;
+                continue;
+            }
+
             elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(elapsed / Mathf.Max(0.001f, active));
             animationAngleOffset = Mathf.Lerp(0f, -360f, t);
@@ -254,7 +268,7 @@ public class EquippedWeaponView : MonoBehaviour
         ResetAnimationOffsets();
         if (recovery > 0f)
         {
-            yield return new WaitForSeconds(recovery);
+            yield return WaitLocalSeconds(recovery);
         }
         ResetAnimationOffsets();
         animationRoutine = null;
@@ -274,6 +288,12 @@ public class EquippedWeaponView : MonoBehaviour
         float holdTime = Mathf.Max(0f, duration - 0.16f);
         while (elapsed < holdTime)
         {
+            if (IsLocallyHitStopped)
+            {
+                yield return null;
+                continue;
+            }
+
             elapsed += Time.deltaTime;
             animationAngleOffset = -72f + Mathf.Sin(Time.time * 18f) * 2.5f;
             UpdateWeaponTransform();
@@ -303,6 +323,12 @@ public class EquippedWeaponView : MonoBehaviour
 
         while (elapsed < duration)
         {
+            if (IsLocallyHitStopped)
+            {
+                yield return null;
+                continue;
+            }
+
             elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(elapsed / duration);
             t = 1f - Mathf.Pow(1f - t, 3f);
@@ -312,6 +338,30 @@ public class EquippedWeaponView : MonoBehaviour
             UpdateWeaponTransform();
             yield return null;
         }
+    }
+
+    private IEnumerator WaitLocalSeconds(float duration)
+    {
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            if (!IsLocallyHitStopped)
+            {
+                elapsed += Time.deltaTime;
+            }
+
+            yield return null;
+        }
+    }
+
+    public void PushHitStop(float duration)
+    {
+        if (duration <= 0f)
+        {
+            return;
+        }
+
+        localHitStopUntil = Mathf.Max(localHitStopUntil, Time.unscaledTime + duration);
     }
 
     private void UpdateWeaponTransform()
@@ -341,17 +391,29 @@ public class EquippedWeaponView : MonoBehaviour
         weaponPivot.position = (Vector2)transform.position + offset;
         weaponPivot.rotation = Quaternion.Euler(0f, 0f, angle);
         weaponPivot.localScale = Vector3.one * Mathf.Max(0.01f, currentWeapon.equippedScale);
+        if (weaponRenderer != null)
+        {
+            weaponRenderer.sprite = currentWeapon.weaponSprite;
+            weaponRenderer.enabled = ShouldShowWorldSprite(currentWeapon);
+            weaponRenderer.sortingOrder = sortingOrder;
+        }
+
+        if (enchantRenderer != null && weaponRenderer != null)
+        {
+            enchantRenderer.sprite = weaponRenderer.sprite;
+        }
+
         UpdateAnchors();
     }
 
     private bool ShouldShowWorldSprite(WeaponDefinition weapon)
     {
-        if (!showWeaponSpriteInWorld || weapon == null)
+        if (!showWeaponSpriteInWorld || weapon == null || weapon.weaponSprite == null)
         {
             return false;
         }
 
-        return false;
+        return true;
     }
 
     private void EnsureVisuals()

@@ -3,6 +3,7 @@ using UnityEngine;
 public sealed class CombatFeedbackSystem : MonoBehaviour
 {
     private static CombatFeedbackSystem instance;
+    [SerializeField] private bool useGlobalHitStopFallback;
     private CameraShakeFeedback cameraShake;
 
     public static CombatFeedbackSystem Instance
@@ -51,7 +52,14 @@ public sealed class CombatFeedbackSystem : MonoBehaviour
     {
         if (result.dealtDamage || result.feedback.hitStopDuration > 0f)
         {
-            HitStopManager.Request(result.feedback.hitStopDuration, result.feedback.hitStopTimeScale);
+            if (useGlobalHitStopFallback)
+            {
+                HitStopManager.Request(result.feedback.hitStopDuration, result.feedback.hitStopTimeScale);
+            }
+            else
+            {
+                LocalHitStopService.Request(result.feedback.hitStopDuration, context.instigator, context.hitPoint);
+            }
         }
 
         if (result.feedback.cameraShake > 0f)

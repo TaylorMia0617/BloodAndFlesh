@@ -20,8 +20,28 @@
       "enemyBudget": 30,
       "hostilitySpawnInterval": 3.5,
       "spawnDenCount": 6,
-      "worldHostility": 1.0,
-      "enemySpawnWeights": "Ranged:2,Attacker:3,Sentinel:1,Shield:2"
+      "spawnDenPoolId": "default",
+      "allowDuplicateSpawnDens": true,
+      "spawnDenWeightMultiplier": 1.0,
+      "spawnDenLevelBias": 0.0,
+      "fixedScouts": [
+        {
+          "id": "central_scout_patrol",
+          "scoutName": "Scout",
+          "count": 4,
+          "patrolRoute": [
+            { "x": 22, "y": 40 },
+            { "x": 40, "y": 46 },
+            { "x": 58, "y": 38 },
+            { "x": 76, "y": 44 }
+          ],
+          "summonCount": 2,
+          "summonEnemyArchetypes": "Attacker:3,Ranged:1",
+          "summonCooldown": 6.0,
+          "summonDenSearchRadius": 24.0
+        }
+      ],
+      "worldHostility": 1.0
     },
     {
       "chapter": 1,
@@ -42,9 +62,29 @@
       "enemySpawnMinDistanceFromPlayer": 12.0,
       "enemyBudget": 22,
       "hostilitySpawnInterval": 3.35,
-      "spawnDenCount": 1,
-      "worldHostility": 1.1,
-      "enemySpawnWeights": "Ranged:2,Attacker:3,Sentinel:1,Shield:2"
+      "spawnDenCount": 3,
+      "spawnDenPoolId": "default",
+      "allowDuplicateSpawnDens": false,
+      "spawnDenWeightMultiplier": 1.0,
+      "spawnDenLevelBias": 0.05,
+      "fixedScouts": [
+        {
+          "id": "wide_scout_patrol",
+          "scoutName": "Scout",
+          "count": 2,
+          "patrolRoute": [
+            { "x": 24, "y": 42 },
+            { "x": 44, "y": 36 },
+            { "x": 66, "y": 48 },
+            { "x": 86, "y": 40 }
+          ],
+          "summonCount": 2,
+          "summonEnemyArchetypes": "Attacker:2,Ranged:2",
+          "summonCooldown": 5.5,
+          "summonDenSearchRadius": 26.0
+        }
+      ],
+      "worldHostility": 1.1
     },
     {
       "chapter": 1,
@@ -65,9 +105,29 @@
       "enemySpawnMinDistanceFromPlayer": 12.0,
       "enemyBudget": 24,
       "hostilitySpawnInterval": 3.2,
-      "spawnDenCount": 2,
-      "worldHostility": 1.2,
-      "enemySpawnWeights": "Ranged:2,Attacker:3,Sentinel:1,Shield:2"
+      "spawnDenCount": 4,
+      "spawnDenPoolId": "default",
+      "allowDuplicateSpawnDens": false,
+      "spawnDenWeightMultiplier": 1.05,
+      "spawnDenLevelBias": 0.08,
+      "fixedScouts": [
+        {
+          "id": "deep_scout_patrol",
+          "scoutName": "Scout",
+          "count": 3,
+          "patrolRoute": [
+            { "x": 26, "y": 44 },
+            { "x": 50, "y": 52 },
+            { "x": 74, "y": 38 },
+            { "x": 96, "y": 46 }
+          ],
+          "summonCount": 3,
+          "summonEnemyArchetypes": "Attacker:3,Ranged:2,Shield:1",
+          "summonCooldown": 5.0,
+          "summonDenSearchRadius": 28.0
+        }
+      ],
+      "worldHostility": 1.2
     }
   ]
 }

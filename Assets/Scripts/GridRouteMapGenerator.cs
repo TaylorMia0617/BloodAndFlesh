@@ -22,13 +22,19 @@ public class GridRouteMapGenerator : MonoBehaviour
     [SerializeField] private int enemySpawnCount = 6;
     [SerializeField] private float enemySpawnMinDistanceFromPlayer = 12f;
     [SerializeField] private float hostilitySpawnInterval = 3.5f;
+    [SerializeField] private bool showEnemySpawnMarkers = true;
+    [SerializeField] private float spawnMarkerScale = 0.55f;
+    [SerializeField] private Sprite normalSpawnMarkerSprite;
+    [SerializeField] private Sprite highHostilitySpawnMarkerSprite;
     [SerializeField] private Sprite[] enemySprites;
 
     private readonly List<Vector2Int> currentPath = new List<Vector2Int>();
     private readonly List<Vector2Int> enemySpawnCells = new List<Vector2Int>();
     private readonly List<Vector3> enemySpawnPositions = new List<Vector3>();
+    private readonly List<SpawnDenController> spawnDens = new List<SpawnDenController>();
     private Vector3 playerSpawnPosition;
     private bool[,] visionBlockers;
+    private StageConfig currentStageConfig;
 
     public Vector3 PlayerSpawnPosition => playerSpawnPosition;
     public int Width => width;
@@ -37,6 +43,7 @@ public class GridRouteMapGenerator : MonoBehaviour
     public Vector2 WorldMin => new Vector2(-width * 0.5f * cellSize, -height * 0.5f * cellSize);
     public Vector2 WorldSize => new Vector2(width * cellSize, height * cellSize);
     public IReadOnlyList<Vector3> EnemySpawnPositions => enemySpawnPositions;
+    public IReadOnlyList<SpawnDenController> SpawnDens => spawnDens;
 
     private void Awake()
     {
@@ -52,6 +59,7 @@ public class GridRouteMapGenerator : MonoBehaviour
         currentPath.Clear();
         enemySpawnCells.Clear();
         enemySpawnPositions.Clear();
+        spawnDens.Clear();
 
         bool[,] road = BuildCorridorNetwork();
         visionBlockers = new bool[width, height];
@@ -98,33 +106,34 @@ public class GridRouteMapGenerator : MonoBehaviour
         CreateSafeDoor("EntryDoor", start + Vector2Int.right, SafeRoomPortal.PortalMode.DisabledVisualDoor);
         CreateSafeDoor("ExitDoor", end + Vector2Int.left, SafeRoomPortal.PortalMode.DungeonExitToSafeRoom);
         BuildEnemySpawnCells(road);
-        SpawnPrototypeEnemies();
-        ConfigureWorldHostilitySpawner();
+        CreateSpawnDens();
+        CreateFixedScouts(road);
+        StopLegacyWorldHostilitySpawner();
     }
 
     private void ApplyStageConfig()
     {
-        StageConfig config = RunLevelManager.Instance != null ? RunLevelManager.Instance.CurrentStageConfig : null;
-        if (config == null)
+        currentStageConfig = RunLevelManager.Instance != null ? RunLevelManager.Instance.CurrentStageConfig : null;
+        if (currentStageConfig == null)
         {
             return;
         }
 
-        width = Mathf.Max(12, config.mapWidth);
-        height = Mathf.Max(12, config.mapHeight);
-        cellSize = Mathf.Max(0.25f, config.cellSize);
-        corridorHalfWidth = Mathf.Max(1, config.corridorHalfWidth);
-        branchCount = Mathf.Max(0, config.branchCount);
-        roomCount = Mathf.Max(0, config.roomCount);
-        enemySpawnCount = Mathf.Max(0, config.initialEnemySpawnCount);
-        enemySpawnMinDistanceFromPlayer = Mathf.Max(0f, config.enemySpawnMinDistanceFromPlayer);
-        hostilitySpawnInterval = Mathf.Max(0.1f, config.hostilitySpawnInterval);
+        width = Mathf.Max(12, currentStageConfig.mapWidth);
+        height = Mathf.Max(12, currentStageConfig.mapHeight);
+        cellSize = Mathf.Max(0.25f, currentStageConfig.cellSize);
+        corridorHalfWidth = Mathf.Max(1, currentStageConfig.corridorHalfWidth);
+        branchCount = Mathf.Max(0, currentStageConfig.branchCount);
+        roomCount = Mathf.Max(0, currentStageConfig.roomCount);
+        enemySpawnCount = Mathf.Max(0, currentStageConfig.initialEnemySpawnCount);
+        enemySpawnMinDistanceFromPlayer = Mathf.Max(0f, currentStageConfig.enemySpawnMinDistanceFromPlayer);
+        hostilitySpawnInterval = Mathf.Max(0.1f, currentStageConfig.hostilitySpawnInterval);
 
-        roadSprite = LoadSpriteOrKeep(config.roadSpriteResource, roadSprite);
-        dangerSprite = LoadSpriteOrKeep(config.dangerSpriteResource, dangerSprite);
-        wallSprite = LoadSpriteOrKeep(config.wallSpriteResource, wallSprite);
-        safeRoomSprite = LoadSpriteOrKeep(config.safeRoomSpriteResource, safeRoomSprite);
-        safeDoorSprite = LoadSpriteOrKeep(config.safeDoorSpriteResource, safeDoorSprite);
+        roadSprite = LoadSpriteOrKeep(currentStageConfig.roadSpriteResource, roadSprite);
+        dangerSprite = LoadSpriteOrKeep(currentStageConfig.dangerSpriteResource, dangerSprite);
+        wallSprite = LoadSpriteOrKeep(currentStageConfig.wallSpriteResource, wallSprite);
+        safeRoomSprite = LoadSpriteOrKeep(currentStageConfig.safeRoomSpriteResource, safeRoomSprite);
+        safeDoorSprite = LoadSpriteOrKeep(currentStageConfig.safeDoorSpriteResource, safeDoorSprite);
     }
 
     private Sprite LoadSpriteOrKeep(string resourcePath, Sprite fallback)
@@ -326,21 +335,31 @@ public class GridRouteMapGenerator : MonoBehaviour
         return false;
     }
 
-    private void SpawnPrototypeEnemies()
+    private void CreateSpawnDens()
     {
-        if (enemySpawnCount <= 0 || enemySpawnCells.Count == 0)
+        StageConfig stageConfig = currentStageConfig ?? (RunLevelManager.Instance != null ? RunLevelManager.Instance.CurrentStageConfig : null);
+        if (stageConfig == null)
         {
             return;
         }
 
-        int requestedCount = enemySpawnCount;
-        if (RunLevelManager.Instance != null)
+        WorldHostilityDirector director = WorldHostilityDirector.Current;
+        SpawnDenConfig[] denConfigs = SpawnDenConfigDatabase.PickSpawnDens(
+            stageConfig.spawnDenPoolId,
+            stageConfig.spawnDenCount,
+            director.RawHostility,
+            stageConfig.allowDuplicateSpawnDens,
+            stageConfig.spawnDenWeightMultiplier,
+            stageConfig.spawnDenLevelBias);
+        if (denConfigs.Length == 0 || enemySpawnCells.Count == 0)
         {
-            requestedCount = Mathf.Min(requestedCount, RunLevelManager.Instance.CurrentInitialEnemySpawnCount);
+            return;
         }
 
         List<Vector2Int> candidates = new List<Vector2Int>(enemySpawnCells);
-        int count = Mathf.Min(requestedCount, candidates.Count);
+        int count = Mathf.Min(denConfigs.Length, candidates.Count);
+        Transform playerTarget = FindPlayerTarget();
+        int globalLimit = RunLevelManager.Instance != null ? RunLevelManager.Instance.CurrentEnemyBudget : 20;
         for (int i = 0; i < count; i++)
         {
             int index = Random.Range(0, candidates.Count);
@@ -349,54 +368,215 @@ public class GridRouteMapGenerator : MonoBehaviour
 
             Vector3 position = GridToWorld(cell);
             enemySpawnPositions.Add(position);
-            CreatePrototypeEnemy($"EnemySpawn_{i:00}", position, PickArchetype());
+            CreateSpawnPointMarker(position, false);
+            CreateSpawnDen($"SpawnDen_{denConfigs[i].id}", position, denConfigs[i], playerTarget, globalLimit);
         }
     }
 
-    private EnemyArchetype PickArchetype()
+    private void CreateFixedScouts(bool[,] road)
     {
-        return EnemyConfigDatabase.PickWeighted();
+        StageConfig stageConfig = currentStageConfig ?? (RunLevelManager.Instance != null ? RunLevelManager.Instance.CurrentStageConfig : null);
+        if (stageConfig == null || stageConfig.fixedScouts == null || stageConfig.fixedScouts.Length == 0)
+        {
+            return;
+        }
+
+        Transform playerTarget = FindPlayerTarget();
+        WorldHostilityDirector director = WorldHostilityDirector.Current;
+        for (int i = 0; i < stageConfig.fixedScouts.Length; i++)
+        {
+            FixedScoutConfig scoutConfig = stageConfig.fixedScouts[i];
+            if (scoutConfig == null)
+            {
+                continue;
+            }
+
+            Vector3[] patrolRoute = BuildFixedScoutRoute(scoutConfig, road);
+            if (patrolRoute.Length == 0)
+            {
+                continue;
+            }
+
+            EnemyArchetype archetype = EnemyConfigDatabase.ResolveArchetypeName(scoutConfig.scoutName, EnemyArchetype.Sentinel);
+            int count = Mathf.Max(0, scoutConfig.count);
+            for (int scoutIndex = 0; scoutIndex < count; scoutIndex++)
+            {
+                Vector3 spawnPosition = patrolRoute[0] + GetScoutSpawnOffset(scoutIndex);
+                GameObject scout = EnemySpawnFactory.CreateEnemy(
+                    transform,
+                    $"FixedScout_{scoutConfig.id}_{scoutIndex + 1:00}",
+                    spawnPosition,
+                    archetype,
+                    playerTarget,
+                    enemySprites,
+                    director);
+                SimpleEnemyAI ai = scout.GetComponent<SimpleEnemyAI>();
+                if (ai != null)
+                {
+                    ai.ConfigureFixedScoutPatrol(
+                        patrolRoute,
+                        scoutConfig.summonEnemyArchetypes,
+                        scoutConfig.summonCount,
+                        scoutConfig.summonCooldown,
+                        scoutConfig.summonDenSearchRadius);
+                }
+            }
+        }
     }
 
-    private void CreatePrototypeEnemy(string enemyName, Vector3 position, EnemyArchetype archetype)
+    private Vector3[] BuildFixedScoutRoute(FixedScoutConfig scoutConfig, bool[,] road)
     {
-        GameObject enemy = new GameObject(enemyName);
-        enemy.transform.SetParent(transform);
-        enemy.transform.position = position + Vector3.back * 0.1f;
+        if (scoutConfig == null || scoutConfig.patrolRoute == null || scoutConfig.patrolRoute.Length == 0)
+        {
+            return System.Array.Empty<Vector3>();
+        }
 
-        SpriteRenderer renderer = enemy.AddComponent<SpriteRenderer>();
-        renderer.sprite = GetEnemySprite(archetype);
-        renderer.sortingOrder = 14;
+        List<Vector3> route = new List<Vector3>();
+        for (int i = 0; i < scoutConfig.patrolRoute.Length; i++)
+        {
+            GridPatrolPoint point = scoutConfig.patrolRoute[i];
+            if (point == null)
+            {
+                continue;
+            }
 
-        CircleCollider2D collider = enemy.AddComponent<CircleCollider2D>();
-        collider.radius = EnemyConfigDatabase.Get(archetype).colliderRadius;
+            Vector2Int grid = new Vector2Int(point.x, point.y);
+            if (!IsGridInside(grid))
+            {
+                continue;
+            }
 
-        Rigidbody2D body = enemy.AddComponent<Rigidbody2D>();
-        body.bodyType = RigidbodyType2D.Dynamic;
+            route.Add(GridToWorld(FindNearestRoadCell(grid, road)));
+        }
+
+        return route.ToArray();
+    }
+
+    private Vector2Int FindNearestRoadCell(Vector2Int origin, bool[,] road)
+    {
+        if (road == null || !IsGridInside(origin))
+        {
+            return origin;
+        }
+
+        if (road[origin.x, origin.y])
+        {
+            return origin;
+        }
+
+        int maxRadius = Mathf.Max(width, height);
+        for (int radius = 1; radius <= maxRadius; radius++)
+        {
+            Vector2Int best = origin;
+            float bestDistance = float.MaxValue;
+            bool found = false;
+            for (int y = origin.y - radius; y <= origin.y + radius; y++)
+            {
+                for (int x = origin.x - radius; x <= origin.x + radius; x++)
+                {
+                    if (x != origin.x - radius && x != origin.x + radius && y != origin.y - radius && y != origin.y + radius)
+                    {
+                        continue;
+                    }
+
+                    Vector2Int candidate = new Vector2Int(x, y);
+                    if (!IsGridInside(candidate) || !road[candidate.x, candidate.y])
+                    {
+                        continue;
+                    }
+
+                    float distance = (candidate - origin).sqrMagnitude;
+                    if (distance < bestDistance)
+                    {
+                        best = candidate;
+                        bestDistance = distance;
+                        found = true;
+                    }
+                }
+            }
+
+            if (found)
+            {
+                return best;
+            }
+        }
+
+        return origin;
+    }
+
+    private Vector3 GetScoutSpawnOffset(int scoutIndex)
+    {
+        if (scoutIndex <= 0)
+        {
+            return Vector3.zero;
+        }
+
+        float angle = scoutIndex * 2.399963f;
+        float radius = Mathf.Min(0.45f, cellSize * 0.35f);
+        return new Vector3(Mathf.Cos(angle) * radius, Mathf.Sin(angle) * radius, 0f);
+    }
+
+    private void CreateSpawnPointMarker(Vector3 position, bool highHostility)
+    {
+        if (!showEnemySpawnMarkers)
+        {
+            return;
+        }
+
+        Sprite markerSprite = highHostility ? highHostilitySpawnMarkerSprite : normalSpawnMarkerSprite;
+        if (markerSprite == null)
+        {
+            markerSprite = highHostility
+                ? Resources.Load<Sprite>("Arts/SimpleSprites/spawn_point_purple_simple")
+                : Resources.Load<Sprite>("Arts/SimpleSprites/spawn_point_red_simple");
+        }
+
+        if (markerSprite == null)
+        {
+            return;
+        }
+
+        GameObject marker = new GameObject(highHostility ? "HighHostilitySpawnMarker" : "EnemySpawnMarker");
+        marker.transform.SetParent(transform);
+        marker.transform.position = position + Vector3.back * 0.05f;
+        marker.transform.localScale = Vector3.one * Mathf.Max(0.1f, spawnMarkerScale);
+
+        SpriteRenderer renderer = marker.AddComponent<SpriteRenderer>();
+        renderer.sprite = markerSprite;
+        renderer.sortingOrder = 13;
+    }
+
+    private void CreateSpawnDen(string denName, Vector3 position, SpawnDenConfig denConfig, Transform playerTarget, int globalEnemyLimit)
+    {
+        GameObject den = new GameObject(denName);
+        den.transform.SetParent(transform);
+        den.transform.position = position + Vector3.back * 0.08f;
+
+        SpriteRenderer renderer = den.AddComponent<SpriteRenderer>();
+        renderer.sprite = normalSpawnMarkerSprite != null ? normalSpawnMarkerSprite : Resources.Load<Sprite>("Arts/SimpleSprites/spawn_point_red_simple");
+        renderer.sortingOrder = 12;
+
+        CircleCollider2D collider = den.AddComponent<CircleCollider2D>();
+        collider.radius = Mathf.Max(0.35f, spawnMarkerScale * 0.5f);
+
+        Rigidbody2D body = den.AddComponent<Rigidbody2D>();
+        body.bodyType = RigidbodyType2D.Kinematic;
         body.gravityScale = 0f;
         body.constraints = RigidbodyConstraints2D.FreezeRotation;
         body.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
 
-        CharacterStats stats = enemy.AddComponent<CharacterStats>();
-        enemy.AddComponent<HitVolumeFeedback>();
-        SimpleEnemyAI ai = enemy.AddComponent<SimpleEnemyAI>();
-        PrototypeDamageable damageable = enemy.AddComponent<PrototypeDamageable>();
-        ai.Configure(archetype, FindPlayerTarget());
-        damageable.enabled = true;
+        den.AddComponent<DamageableHurtbox>();
+        CharacterStats stats = den.AddComponent<CharacterStats>();
+        SpawnDenController controller = den.AddComponent<SpawnDenController>();
+        controller.Configure(denConfig, playerTarget, enemySprites, transform, globalEnemyLimit);
         stats.ResetStats();
+        spawnDens.Add(controller);
     }
 
-    private void ConfigureWorldHostilitySpawner()
+    private void StopLegacyWorldHostilitySpawner()
     {
         WorldHostilitySpawner spawner = GetComponent<WorldHostilitySpawner>();
-        if (spawner == null)
-        {
-            spawner = gameObject.AddComponent<WorldHostilitySpawner>();
-        }
-
-        spawner.Configure(this, FindPlayerTarget(), enemySprites);
-        spawner.SetSpawnInterval(hostilitySpawnInterval);
-        spawner.StartSpawning();
+        spawner?.StopSpawning();
     }
 
     private Transform FindPlayerTarget()
@@ -471,6 +651,8 @@ public class GridRouteMapGenerator : MonoBehaviour
         wallSprite = wallSprite != null ? wallSprite : Resources.Load<Sprite>("Arts/Tiles/tile_wall_block");
         safeRoomSprite = safeRoomSprite != null ? safeRoomSprite : Resources.Load<Sprite>("Arts/Tiles/tile_safe_room_floor");
         safeDoorSprite = safeDoorSprite != null ? safeDoorSprite : Resources.Load<Sprite>("Arts/Tiles/tile_safe_door");
+        normalSpawnMarkerSprite = normalSpawnMarkerSprite != null ? normalSpawnMarkerSprite : Resources.Load<Sprite>("Arts/SimpleSprites/spawn_point_red_simple");
+        highHostilitySpawnMarkerSprite = highHostilitySpawnMarkerSprite != null ? highHostilitySpawnMarkerSprite : Resources.Load<Sprite>("Arts/SimpleSprites/spawn_point_purple_simple");
         if (enemySprites == null || enemySprites.Length == 0)
         {
             enemySprites = new[]

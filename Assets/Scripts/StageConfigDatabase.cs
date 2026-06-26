@@ -29,8 +29,32 @@ public sealed class StageConfig
     public int enemyBudget = 20;
     public float hostilitySpawnInterval = 3.5f;
     public int spawnDenCount = 0;
+    public string spawnDenPoolId = "default";
+    public bool allowDuplicateSpawnDens;
+    public float spawnDenWeightMultiplier = 1f;
+    public float spawnDenLevelBias;
+    public FixedScoutConfig[] fixedScouts = Array.Empty<FixedScoutConfig>();
     public float worldHostility = 1f;
-    public string enemySpawnWeights = "Ranged:2,Attacker:3,Sentinel:1,Shield:2";
+}
+
+[Serializable]
+public sealed class FixedScoutConfig
+{
+    public string id = "fixed_scout";
+    public string scoutName = "Scout";
+    public int count = 1;
+    public GridPatrolPoint[] patrolRoute = Array.Empty<GridPatrolPoint>();
+    public int summonCount = 0;
+    public string summonEnemyArchetypes = "Attacker:1";
+    public float summonCooldown = 6f;
+    public float summonDenSearchRadius = 24f;
+}
+
+[Serializable]
+public sealed class GridPatrolPoint
+{
+    public int x;
+    public int y;
 }
 
 public static class StageConfigDatabase
@@ -88,7 +112,9 @@ public static class StageConfigDatabase
             label = $"{chapter}-{stage}",
             initialEnemySpawnCount = Mathf.Max(0, 6 + (chapter - 1) * 2 + (stage - 1)),
             enemyBudget = Mathf.Max(1, 20 + (chapter - 1) * 4 + (stage - 1) * 2),
-            hostilitySpawnInterval = Mathf.Max(1.5f, 3.5f - (chapter - 1) * 0.25f - (stage - 1) * 0.15f)
+            hostilitySpawnInterval = Mathf.Max(1.5f, 3.5f - (chapter - 1) * 0.25f - (stage - 1) * 0.15f),
+            spawnDenCount = 2,
+            spawnDenPoolId = "default"
         };
     }
 }

@@ -1,0 +1,21 @@
+{
+  "entries": [
+    {
+      "id": "skill_dash_spark",
+      "type": "skill",
+      "name": "闪火步",
+      "rarity": "rare",
+      "iconResource": "",
+      "description": "获得一个短距离闪避技能，结束时留下小范围火花。",
+      "basePrice": 160,
+      "effects": [
+        {
+          "type": "unlockSkill",
+          "skillId": "dash_spark",
+          "slot": "Q"
+        }
+      ],
+      "maxStack": 1
+    }
+  ]
+}

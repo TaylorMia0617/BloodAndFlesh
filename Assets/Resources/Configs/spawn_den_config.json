@@ -1,0 +1,90 @@
+{
+  "spawnDenPools": [
+    {
+      "id": "default",
+      "entries": [
+        {
+          "id": "basic_attacker_den",
+          "level": 1,
+          "minWorldHostility": 0.0,
+          "baseWeight": 4.0,
+          "weightPerHostilityAboveMin": 0.4,
+          "weightCurve": "linear",
+          "maxHealth": 40.0,
+          "baseSpawnInterval": 3.5,
+          "enemyArchetypes": "Attacker:3,Ranged:1,Shield:2,Sentinel:1",
+          "spawnLogic": { "activationRange": 50.0, "accelerationRange": 4, "acceleratedIntervalMultiplier": 0.65, "maxAliveEnemies": 3, "spawnRadius": 0.25 },
+          "phases": [
+            { "healthPercent": 0.5, "action": "intervalMultiplier", "intervalMultiplier": 0.8 }
+          ],
+          "destroyLogic": { "type": "destroyOnDeath" }
+        },
+        {
+          "id": "pressure_revive_den",
+          "level": 1,
+          "minWorldHostility": 0.0,
+          "baseWeight": 2.5,
+          "weightPerHostilityAboveMin": 0.35,
+          "weightCurve": "linear",
+          "maxHealth": 110.0,
+          "baseSpawnInterval": 5.0,
+          "enemyArchetypes": "Attacker:2,Sentinel:1,Shield:1",
+          "spawnLogic": { "activationRange": 43.0, "accelerationRange": 13.0, "acceleratedIntervalMultiplier": 0.6, "maxAliveEnemies": 3, "spawnRadius": 0.25 },
+          "phases": [
+            { "healthPercent": 0.35, "action": "burstSpawn", "enemyArchetypes": "Attacker:1", "count": 2, "duration": 0.0 }
+          ],
+          "destroyLogic": { "type": "reviveAfterDelayInterruptible", "reviveDelaySeconds": 4.0, "reviveHealPerSecond": 18.0, "reviveHealthPercent": 0.45 }
+        },
+        {
+          "id": "ranged_support_den",
+          "level": 2,
+          "minWorldHostility": 1.0,
+          "baseWeight": 2.0,
+          "weightPerHostilityAboveMin": 0.65,
+          "weightCurve": "linear",
+          "maxHealth": 125.0,
+          "baseSpawnInterval": 4.0,
+          "enemyArchetypes": "Attacker:3,Ranged:2,Shield:1",
+          "spawnLogic": { "activationRange": 40.0, "accelerationRange": 7.5, "acceleratedIntervalMultiplier": 0.6, "maxAliveEnemies": 5, "spawnRadius": 0.25 },
+          "phases": [
+            { "healthPercent": 0.6, "action": "summonEnemies", "enemyArchetypes": "Ranged:1", "count": 1, "duration": 0.0 },
+            { "healthPercent": 0.3, "action": "intervalMultiplier", "intervalMultiplier": 0.65 }
+          ],
+          "destroyLogic": { "type": "reviveAfterDelayInterruptible", "reviveDelaySeconds": 5.0, "reviveHealPerSecond": 16.0, "reviveHealthPercent": 0.5 }
+        },
+        {
+          "id": "mixed_burst_den",
+          "level": 3,
+          "minWorldHostility": 1.1,
+          "baseWeight": 1.6,
+          "weightPerHostilityAboveMin": 0.8,
+          "weightCurve": "steep",
+          "maxHealth": 140.0,
+          "baseSpawnInterval": 3.8,
+          "enemyArchetypes": "Attacker:2,Ranged:2,Sentinel:1",
+          "spawnLogic": { "activationRange": 0.0, "accelerationRange": 8.0, "acceleratedIntervalMultiplier": 0.58, "maxAliveEnemies": 5, "spawnRadius": 0.25 },
+          "phases": [
+            { "healthPercent": 0.5, "action": "burstSpawn", "enemyArchetypes": "Attacker:2,Ranged:1", "count": 3, "duration": 0.0 }
+          ],
+          "destroyLogic": { "type": "destroyOnDeath", "reviveDelaySeconds": 5.0, "reviveHealPerSecond": 12.0, "reviveHealthPercent": 0.5 }
+        },
+        {
+          "id": "shield_revive_den",
+          "level": 3,
+          "minWorldHostility": 1.2,
+          "baseWeight": 1.2,
+          "weightPerHostilityAboveMin": 1.0,
+          "weightCurve": "steep",
+          "maxHealth": 160.0,
+          "baseSpawnInterval": 4.4,
+          "enemyArchetypes": "Shield:2,Ranged:2,Attacker:1",
+          "spawnLogic": { "activationRange": 14.0, "accelerationRange": 6.5, "acceleratedIntervalMultiplier": 0.55, "maxAliveEnemies": 4, "spawnRadius": 0.25 },
+          "phases": [
+            { "healthPercent": 0.4, "action": "intervalMultiplier", "intervalMultiplier": 0.6 }
+          ],
+          "destroyLogic": { "type": "reviveAfterDelayInterruptible", "reviveDelaySeconds": 6.0, "reviveHealPerSecond": 20.0, "reviveHealthPercent": 0.45 }
+        }
+      ]
+    }
+  ]
+}

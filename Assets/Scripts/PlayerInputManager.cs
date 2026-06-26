@@ -6,7 +6,7 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(Rigidbody2D))]
 [RequireComponent(typeof(PlayerCombatController))]
 [DisallowMultipleComponent]
-public class PlayerInputManager : MonoBehaviour
+public class PlayerInputManager : MonoBehaviour, ILocalFreezable
 {
     private enum PlayerMoveState
     {
@@ -19,9 +19,10 @@ public class PlayerInputManager : MonoBehaviour
     [Header("Player Settings")]
     [SerializeField] public float moveSpeed = 6f;
     [SerializeField] public float mark = 0.5f;
-    [SerializeField] private float turnSpeedDegrees = 1440f;
-    [SerializeField] private float attackTurnThresholdDegrees = 3f;
-    [SerializeField] private float attackTurnGraceSeconds = 0.04f;
+    [Header("Visual Sprites")]
+    [SerializeField] private Sprite playerLeftSprite;
+    [SerializeField] private Sprite playerRightSprite;
+    [SerializeField] private float mouseFacingDeadZone = 0.08f;
     public bool canMove = true;
 
     private Rigidbody2D playerRb;
@@ -38,12 +39,16 @@ public class PlayerInputManager : MonoBehaviour
     private PlayerMoveState moveState = PlayerMoveState.Idle;
     private Coroutine knockbackRoutine;
     private float externalKnockbackUntil;
+    private float localHitStopUntil;
     private float speedMultiplier = 1f;
     private float stunnedUntil;
     private StunStatusVisual stunVisual;
     private PlayerBuffPool buffPool;
+    private SpriteRenderer playerSpriteRenderer;
 
     public bool IsStunned => Time.time < stunnedUntil;
+    public Vector2 FacingDirection => facingDirection.sqrMagnitude > 0.001f ? facingDirection.normalized : Vector2.up;
+    private bool IsLocallyHitStopped => Time.unscaledTime < localHitStopUntil;
 
     private void Awake()
     {
@@ -52,6 +57,9 @@ public class PlayerInputManager : MonoBehaviour
         combatController = GetComponent<PlayerCombatController>();
         stats = GetComponent<CharacterStats>();
         buffPool = GetComponent<PlayerBuffPool>();
+        playerSpriteRenderer = GetComponent<SpriteRenderer>();
+        LoadSimplePlayerSprites();
+        ResetBodyRotation();
         if (combatController == null)
         {
             combatController = gameObject.AddComponent<PlayerCombatController>();
@@ -113,6 +121,12 @@ public class PlayerInputManager : MonoBehaviour
     private void Update()
     {
         UpdateAimAndFacing();
+
+        if (IsLocallyHitStopped)
+        {
+            StopMovement(PlayerMoveState.AttackLocked);
+            return;
+        }
     }
 
     private void FixedUpdate()
@@ -208,6 +222,36 @@ public class PlayerInputManager : MonoBehaviour
         }
     }
 
+    private void LoadSimplePlayerSprites()
+    {
+        playerLeftSprite = playerLeftSprite != null ? playerLeftSprite : Resources.Load<Sprite>("Arts/SimpleSprites/player_left_simple");
+        playerRightSprite = playerRightSprite != null ? playerRightSprite : Resources.Load<Sprite>("Arts/SimpleSprites/player_right_simple");
+        if (playerSpriteRenderer != null && playerRightSprite != null)
+        {
+            playerSpriteRenderer.sprite = playerRightSprite;
+        }
+    }
+
+    private void UpdatePlayerPointerSprite(Vector2 pointerWorldPosition)
+    {
+        if (playerSpriteRenderer == null)
+        {
+            return;
+        }
+
+        float deltaX = pointerWorldPosition.x - transform.position.x;
+        if (Mathf.Abs(deltaX) < mouseFacingDeadZone)
+        {
+            return;
+        }
+
+        Sprite nextSprite = deltaX < 0f ? playerLeftSprite : playerRightSprite;
+        if (nextSprite != null)
+        {
+            playerSpriteRenderer.sprite = nextSprite;
+        }
+    }
+
     private void UpdateAimAndFacing()
     {
         if (!TryGetPointerWorldPosition(out Vector2 pointerWorldPosition))
@@ -217,6 +261,8 @@ public class PlayerInputManager : MonoBehaviour
         }
 
         UpdateWorldCursor(pointerWorldPosition);
+        UpdatePlayerPointerSprite(pointerWorldPosition);
+        ResetBodyRotation();
         Vector2 direction = pointerWorldPosition - (Vector2)transform.position;
         if (direction.sqrMagnitude <= 0.01f)
         {
@@ -235,10 +281,9 @@ public class PlayerInputManager : MonoBehaviour
         }
 
         facingDirection = aimDirection;
-        RotateToFacingDirection();
         if (combatController != null)
         {
-            combatController.SetAimDirection(transform.up);
+            combatController.SetAimDirection(aimDirection);
         }
     }
 
@@ -250,8 +295,13 @@ public class PlayerInputManager : MonoBehaviour
         }
 
         facingDirection = direction.normalized;
-        RotateToFacingDirection();
-        return IsFacingTarget(facingDirection, attackTurnThresholdDegrees);
+        if (combatController != null)
+        {
+            combatController.SetPendingAimDirection(facingDirection);
+            combatController.SetAimDirection(facingDirection);
+        }
+
+        return true;
     }
 
     public IEnumerator FaceDirectionBeforeAttack(Vector2 direction)
@@ -261,12 +311,8 @@ public class PlayerInputManager : MonoBehaviour
             yield break;
         }
 
-        float elapsed = 0f;
-        while (!TryFaceDirectionForAttack(direction) && elapsed < attackTurnGraceSeconds)
-        {
-            elapsed += Time.deltaTime;
-            yield return null;
-        }
+        TryFaceDirectionForAttack(direction);
+        yield break;
     }
 
     public void SetTemporarySpeedMultiplier(float multiplier, float duration)
@@ -294,6 +340,17 @@ public class PlayerInputManager : MonoBehaviour
         {
             buffPool.AddDebuff("stun", "Stun", Resources.Load<Sprite>("Arts/UI/Status/status_stun"), duration);
         }
+    }
+
+    public void PushHitStop(float duration)
+    {
+        if (duration <= 0f)
+        {
+            return;
+        }
+
+        localHitStopUntil = Mathf.Max(localHitStopUntil, Time.unscaledTime + duration);
+        StopMovement(PlayerMoveState.AttackLocked);
     }
 
     private void EnsureStunVisual()
@@ -408,27 +465,14 @@ public class PlayerInputManager : MonoBehaviour
         }
     }
 
-    private void RotateToFacingDirection()
+    private void ResetBodyRotation()
     {
-        float targetAngle = Mathf.Atan2(facingDirection.y, facingDirection.x) * Mathf.Rad2Deg - 90f;
-        float currentAngle = playerRb != null ? playerRb.rotation : transform.eulerAngles.z;
-        float angle = Mathf.MoveTowardsAngle(currentAngle, targetAngle, turnSpeedDegrees * Time.deltaTime);
         if (playerRb != null)
         {
-            playerRb.rotation = angle;
-        }
-        transform.rotation = Quaternion.Euler(0f, 0f, angle);
-    }
-
-    private bool IsFacingTarget(Vector2 targetDirection, float thresholdDegrees)
-    {
-        if (targetDirection.sqrMagnitude <= 0.001f)
-        {
-            return true;
+            playerRb.rotation = 0f;
         }
 
-        Vector2 currentUp = transform.up;
-        return Vector2.Angle(currentUp, targetDirection.normalized) <= thresholdDegrees;
+        transform.rotation = Quaternion.identity;
     }
 
     private IEnumerator TemporarySpeedMultiplierRoutine(float multiplier, float duration)

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 public class SafeRoomManager : MonoBehaviour
 {
     private static SafeRoomManager instance;
+    private static bool isShuttingDown;
 
     [Header("Layout")]
     [SerializeField] private Vector2 safeRoomOrigin = new Vector2(0f, -120f);
@@ -22,11 +23,17 @@ public class SafeRoomManager : MonoBehaviour
     private SafeRoomInteractable currentInteractable;
     private Transform currentPlayer;
     private readonly List<SafeRoomInteractable> nearbyInteractables = new List<SafeRoomInteractable>();
+    private bool interactionPromptsSuppressed;
 
     public static SafeRoomManager Instance
     {
         get
         {
+            if (isShuttingDown)
+            {
+                return null;
+            }
+
             if (instance != null)
             {
                 return instance;
@@ -39,10 +46,22 @@ public class SafeRoomManager : MonoBehaviour
                 return instance;
             }
 
+            if (!Application.isPlaying)
+            {
+                return null;
+            }
+
             GameObject managerObject = new GameObject("SafeRoomManager");
             instance = managerObject.AddComponent<SafeRoomManager>();
             return instance;
         }
+    }
+
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        instance = null;
+        isShuttingDown = false;
     }
 
     private void Awake()
@@ -54,11 +73,34 @@ public class SafeRoomManager : MonoBehaviour
         }
 
         instance = this;
+        isShuttingDown = false;
+    }
+
+    private void OnApplicationQuit()
+    {
+        isShuttingDown = true;
+    }
+
+    private void OnDestroy()
+    {
+        if (instance == this)
+        {
+            instance = null;
+            isShuttingDown = true;
+        }
     }
 
     private void Start()
     {
         PreloadSafeRoom();
+    }
+
+    private void Update()
+    {
+        if (!interactionPromptsSuppressed && currentPlayer != null && nearbyInteractables.Count > 0)
+        {
+            RefreshFocusedInteractable();
+        }
     }
 
     private void PreloadSafeRoom()
@@ -83,6 +125,7 @@ public class SafeRoomManager : MonoBehaviour
         }
 
         BuildSafeRoomTemplate();
+        ResetInteractionFocus();
         RunLevelManager.Instance.EnterSafeRoom(entrance != null ? entrance.position : player.position);
         SetSafeRoomVisibilityMode(true);
         player.position = GridToWorld(5, 8) + Vector2.up * 0.15f;
@@ -112,6 +155,7 @@ public class SafeRoomManager : MonoBehaviour
 
         RunLevelManager.Instance.ExitSafeRoom();
         SetSafeRoomVisibilityMode(false);
+        ResetInteractionFocus();
         if (safeRoomRoot != null)
         {
             safeRoomRoot.gameObject.SetActive(false);
@@ -183,10 +227,23 @@ public class SafeRoomManager : MonoBehaviour
         return true;
     }
 
+    public void SetInteractionPromptsSuppressed(bool suppressed)
+    {
+        interactionPromptsSuppressed = suppressed;
+        if (interactionPromptsSuppressed)
+        {
+            currentInteractable = null;
+            SetAllInteractablePrompts(false);
+            return;
+        }
+
+        RefreshFocusedInteractable();
+    }
+
     private void RefreshFocusedInteractable()
     {
         currentInteractable = null;
-        if (currentPlayer == null)
+        if (currentPlayer == null || interactionPromptsSuppressed)
         {
             SetAllInteractablePrompts(false);
             return;
@@ -194,7 +251,8 @@ public class SafeRoomManager : MonoBehaviour
 
         SafeRoomInteractable best = null;
         float bestScore = float.MaxValue;
-        Vector2 facing = currentPlayer.up;
+        PlayerInputManager inputManager = currentPlayer.GetComponent<PlayerInputManager>();
+        Vector2 facing = inputManager != null ? inputManager.FacingDirection : (Vector2)currentPlayer.up;
         if (facing.sqrMagnitude < 0.001f)
         {
             facing = Vector2.up;
@@ -245,6 +303,14 @@ public class SafeRoomManager : MonoBehaviour
                 nearbyInteractables[i].SetFocused(focused);
             }
         }
+    }
+
+    private void ResetInteractionFocus()
+    {
+        SetAllInteractablePrompts(false);
+        nearbyInteractables.Clear();
+        currentInteractable = null;
+        currentPlayer = null;
     }
 
     private void UseWishStatue(Transform player)
@@ -322,7 +388,39 @@ public class SafeRoomManager : MonoBehaviour
 
         Sprite icon = Resources.Load<Sprite>("Arts/UI/Buffs/buff_wish");
         buffPool.AddBuff(choice.id, choice.title, icon);
+        ApplyWishBuffEffects(player, choice.id);
         Debug.Log($"Wish buff selected: {choice.title}. Safe house exit unlocked.");
+    }
+
+    private void ApplyWishBuffEffects(Transform player, string buffId)
+    {
+        BuffConfigDatabase.BuffConfig config = BuffConfigDatabase.Get(buffId);
+        if (config == null || config.effects == null || config.effects.Length == 0)
+        {
+            Debug.LogWarning($"Wish buff {buffId} has no configured effects.");
+            return;
+        }
+
+        CharacterStats stats = player.GetComponent<CharacterStats>();
+        for (int i = 0; i < config.effects.Length; i++)
+        {
+            BuffConfigDatabase.BuffEffect effect = config.effects[i];
+            if (effect == null)
+            {
+                continue;
+            }
+
+            if (effect.target == "player" && effect.stat == "maxHealth" && effect.mode == "add")
+            {
+                if (stats != null)
+                {
+                    stats.ModifyMaxHealth(effect.value, true);
+                }
+                continue;
+            }
+
+            Debug.LogWarning($"Wish buff effect is not supported yet: {buffId} {effect.target}/{effect.stat}/{effect.mode}.");
+        }
     }
 
     private void BuildSafeRoomTemplate()

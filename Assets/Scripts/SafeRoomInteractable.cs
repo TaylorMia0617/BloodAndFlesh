@@ -16,8 +16,11 @@ public class SafeRoomInteractable : MonoBehaviour
 
     [SerializeField] private string description;
     [SerializeField] private SafeRoomAction action;
-    private TextMesh promptText;
-    private SpriteRenderer promptBackground;
+    [SerializeField] private Vector3 promptOffset = new Vector3(0f, 0.72f, 0f);
+    [SerializeField] private Vector3 promptScale = new Vector3(0.72f, 0.72f, 1f);
+    [SerializeField] private string promptSpriteResource = "Arts/UI/SafeHouse/ui_interact_prompt_f_comic";
+    private GameObject promptObject;
+    private SpriteRenderer promptRenderer;
 
     public SafeRoomAction Action => action;
 
@@ -41,7 +44,11 @@ public class SafeRoomInteractable : MonoBehaviour
             return;
         }
 
-        SafeRoomManager.Instance.SetCurrentInteractable(this, player.transform);
+        SafeRoomManager manager = SafeRoomManager.Instance;
+        if (manager != null)
+        {
+            manager.SetCurrentInteractable(this, player.transform);
+        }
     }
 
     private void OnTriggerExit2D(Collider2D other)
@@ -52,45 +59,53 @@ public class SafeRoomInteractable : MonoBehaviour
             return;
         }
 
-        SafeRoomManager.Instance.ClearCurrentInteractable(this);
+        SafeRoomManager manager = SafeRoomManager.Instance;
+        if (manager != null)
+        {
+            manager.ClearCurrentInteractable(this);
+        }
     }
 
     public void Interact(Transform player)
     {
-        SafeRoomManager.Instance.HandleInteraction(action, player, description);
+        SafeRoomManager manager = SafeRoomManager.Instance;
+        if (manager != null)
+        {
+            manager.HandleInteraction(action, player, description);
+        }
     }
 
-    private void EnsurePrompt()
+    private void LateUpdate()
     {
-        if (promptText != null)
+        if (promptObject == null || !promptObject.activeSelf)
         {
             return;
         }
 
-        GameObject promptObject = new GameObject("InteractPrompt");
-        promptObject.transform.SetParent(transform);
-        promptObject.transform.localPosition = new Vector3(0f, 0.86f, 0f);
-
-        GameObject backgroundObject = new GameObject("PromptBackground");
-        backgroundObject.transform.SetParent(promptObject.transform);
-        backgroundObject.transform.localPosition = new Vector3(0f, 0f, 0.01f);
-        backgroundObject.transform.localScale = new Vector3(0.60f, 0.46f, 1f);
-        promptBackground = backgroundObject.AddComponent<SpriteRenderer>();
-        promptBackground.sprite = CreatePromptBackgroundSprite();
-        promptBackground.color = new Color(0.94f, 0.84f, 0.55f, 0.92f);
-        promptBackground.sortingOrder = 69;
-
-        promptText = promptObject.AddComponent<TextMesh>();
-        promptText.text = "F";
-        promptText.anchor = TextAnchor.MiddleCenter;
-        promptText.alignment = TextAlignment.Center;
-        promptText.characterSize = 0.50f;
-        promptText.color = new Color(0.02f, 0.018f, 0.014f, 1f);
-        MeshRenderer renderer = promptObject.GetComponent<MeshRenderer>();
-        if (renderer != null)
+        Camera targetCamera = Camera.main;
+        if (targetCamera != null)
         {
-            renderer.sortingOrder = 70;
+            promptObject.transform.rotation = targetCamera.transform.rotation;
         }
+
+        promptObject.transform.localScale = promptScale;
+    }
+
+    private void EnsurePrompt()
+    {
+        if (promptRenderer != null)
+        {
+            return;
+        }
+
+        promptObject = new GameObject("InteractPrompt");
+        promptObject.transform.SetParent(transform);
+        promptObject.transform.localPosition = promptOffset;
+        promptObject.transform.localScale = promptScale;
+
+        promptRenderer = promptObject.AddComponent<SpriteRenderer>();
+        promptRenderer.sprite = Resources.Load<Sprite>(promptSpriteResource) ?? CreatePromptFallbackSprite();
+        promptRenderer.sortingOrder = 70;
 
         SetPromptVisible(false);
     }
@@ -102,13 +117,13 @@ public class SafeRoomInteractable : MonoBehaviour
 
     private void SetPromptVisible(bool visible)
     {
-        if (promptText != null)
+        if (promptObject != null)
         {
-            promptText.gameObject.SetActive(visible);
+            promptObject.SetActive(visible);
         }
     }
 
-    private Sprite CreatePromptBackgroundSprite()
+    private Sprite CreatePromptFallbackSprite()
     {
         const int size = 32;
         Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false)

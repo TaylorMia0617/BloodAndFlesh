@@ -1,0 +1,82 @@
+{
+  "entries": [
+    {
+      "id": "item_small_heal",
+      "type": "item",
+      "name": "小型治疗剂",
+      "rarity": "common",
+      "iconResource": "",
+      "description": "立刻恢复 20 点生命值。",
+      "basePrice": 40,
+      "effects": [
+        {
+          "type": "restoreHealth",
+          "target": "player",
+          "value": 20.0
+        }
+      ],
+      "maxStack": 1
+    },
+    {
+      "id": "item_mana_shard",
+      "type": "item",
+      "name": "魔力碎晶",
+      "rarity": "common",
+      "iconResource": "",
+      "description": "立刻恢复 0.5 格法力。",
+      "basePrice": 55,
+      "effects": [
+        {
+          "type": "restoreMana",
+          "target": "player",
+          "value": 0.5
+        }
+      ],
+      "maxStack": 1
+    },
+    {
+      "id": "item_blood_lantern",
+      "type": "item",
+      "name": "血灯",
+      "rarity": "rare",
+      "iconResource": "",
+      "description": "短时间扩大感知，但会吸引额外世界敌意。",
+      "basePrice": 130,
+      "effects": [
+        {
+          "type": "addBuff",
+          "buffId": "blood_lantern_sense",
+          "stacks": 1
+        },
+        {
+          "type": "addDebuff",
+          "debuffId": "hostility_scent",
+          "stacks": 1
+        }
+      ],
+      "maxStack": 1
+    },
+    {
+      "id": "blackmarket_cursed_edge",
+      "type": "item",
+      "name": "诅咒刃纹",
+      "rarity": "cursed",
+      "iconResource": "",
+      "description": "武器伤害提高，但受到伤害也提高。黑市限定。",
+      "basePrice": 220,
+      "effects": [
+        {
+          "type": "addBuff",
+          "buffId": "cursed_weapon_damage",
+          "stacks": 1
+        },
+        {
+          "type": "addDebuff",
+          "debuffId": "fragile_body",
+          "stacks": 1
+        }
+      ],
+      "maxStack": 1
+    }
+  ]
+}

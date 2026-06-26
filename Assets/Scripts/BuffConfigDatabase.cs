@@ -67,16 +67,57 @@ public static class BuffConfigDatabase
     public static BuffConfig[] GetWishChoices(int count)
     {
         EnsureLoaded();
-        List<BuffConfig> choices = new List<BuffConfig>(count);
-        for (int i = 0; i < cachedBuffs.Length && choices.Count < count; i++)
+        List<BuffConfig> available = new List<BuffConfig>();
+        for (int i = 0; i < cachedBuffs.Length; i++)
         {
             if (cachedBuffs[i] != null)
             {
-                choices.Add(cachedBuffs[i]);
+                available.Add(cachedBuffs[i]);
+            }
+        }
+
+        List<BuffConfig> choices = new List<BuffConfig>(count);
+        WorldHostilityDirector director = WorldHostilityDirector.Current;
+        while (choices.Count < count && available.Count > 0)
+        {
+            float total = 0f;
+            for (int i = 0; i < available.Count; i++)
+            {
+                total += GetWeight(available[i], director);
+            }
+
+            if (total <= 0f)
+            {
+                break;
+            }
+
+            float roll = UnityEngine.Random.Range(0f, total);
+            for (int i = 0; i < available.Count; i++)
+            {
+                BuffConfig buff = available[i];
+                roll -= GetWeight(buff, director);
+                if (roll > 0f)
+                {
+                    continue;
+                }
+
+                choices.Add(buff);
+                available.RemoveAt(i);
+                break;
             }
         }
 
         return choices.ToArray();
+    }
+
+    private static float GetWeight(BuffConfig buff, WorldHostilityDirector director)
+    {
+        if (buff == null)
+        {
+            return 0f;
+        }
+
+        return Mathf.Max(0f, director.GetBuffRarityWeightMultiplier(buff.rarity));
     }
 
     private static void EnsureLoaded()

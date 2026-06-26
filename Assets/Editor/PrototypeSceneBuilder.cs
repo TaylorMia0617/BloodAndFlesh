@@ -345,7 +345,8 @@ public static class PrototypeSceneBuilder
         weapon.weaponType = type;
         weapon.displayName = name;
         weapon.weaponSprite = LoadSprite(spritePath);
-        weapon.damage = damage;
+        weapon.physicalDamage = type == WeaponType.Spell ? 0f : damage;
+        weapon.magicDamage = type == WeaponType.Spell ? damage : 0f;
         weapon.armorPiercing = armorPiercing;
         weapon.attackRange = range;
         weapon.attackRadius = radius;

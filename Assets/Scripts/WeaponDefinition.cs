@@ -6,7 +6,8 @@ public class WeaponDefinition : ScriptableObject
     public WeaponType weaponType = WeaponType.Knife;
     public string displayName = "Knife";
     public Sprite weaponSprite;
-    public float damage = 10f;
+    public float physicalDamage = 10f;
+    public float magicDamage = 0f;
     public float armorPiercing = 0f;
     public float attackRange = 1.2f;
     public float attackRadius = 0.45f;
@@ -24,6 +25,7 @@ public class WeaponDefinition : ScriptableObject
     public LayerMask targetLayers;
 
     [Header("Combat Feel")]
+    public AttackActionData primaryAction;
     [Range(0f, 0.15f)] public float hitStopDuration = 0.035f;
     [Range(0f, 1f)] public float hitStopTimeScale = 0.05f;
     [Min(0f)] public float knockbackDistance = 1f;

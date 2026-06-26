@@ -9,6 +9,8 @@ public class PlayerVisionMask : MonoBehaviour
     [SerializeField] private float feather = 0.75f;
     [SerializeField] private int rayCount = 192;
     [SerializeField] private float rayStep = 0.08f;
+    [SerializeField] private float rayTextureUpdateInterval = 0.05f;
+    [SerializeField] private float rayTextureMoveThreshold = 0.08f;
     [SerializeField] private float lowHealthDarknessPerMissingPercent = 0.005f;
     [SerializeField] private float maxHealthDarkness = 0.5f;
 
@@ -17,6 +19,9 @@ public class PlayerVisionMask : MonoBehaviour
     private Texture2D rayDistanceTexture;
     private Color[] rayDistancePixels;
     private float healthRatio = 1f;
+    private float nextRayTextureUpdateTime;
+    private Vector2 lastRayTextureOrigin;
+    private bool rayTextureDirty = true;
 
     private void Awake()
     {
@@ -35,7 +40,7 @@ public class PlayerVisionMask : MonoBehaviour
         }
 
         ResolveMapGenerator();
-        UpdateRayDistanceTexture();
+        UpdateRayDistanceTextureIfNeeded();
         maskMaterial.SetVector("_PlayerPosition", new Vector4(target.position.x, target.position.y, 0f, 0f));
         maskMaterial.SetVector("_CameraCenter", new Vector4(targetCamera.transform.position.x, targetCamera.transform.position.y, 0f, 0f));
         if (rayDistanceTexture != null)
@@ -59,11 +64,13 @@ public class PlayerVisionMask : MonoBehaviour
     public void SetTarget(Transform newTarget)
     {
         target = newTarget;
+        rayTextureDirty = true;
     }
 
     public void SetMapGenerator(GridRouteMapGenerator newMapGenerator)
     {
         mapGenerator = newMapGenerator;
+        rayTextureDirty = true;
     }
 
     public void SetHealthRatio(float ratio)
@@ -95,7 +102,7 @@ public class PlayerVisionMask : MonoBehaviour
         }
     }
 
-    private void UpdateRayDistanceTexture()
+    private void UpdateRayDistanceTextureIfNeeded()
     {
         EnsureRayDistanceTexture();
         if (target == null)
@@ -104,6 +111,24 @@ public class PlayerVisionMask : MonoBehaviour
         }
 
         Vector2 origin = target.position;
+        float moveThreshold = Mathf.Max(0.01f, rayTextureMoveThreshold);
+        bool movedEnough = (origin - lastRayTextureOrigin).sqrMagnitude >= moveThreshold * moveThreshold;
+        bool intervalElapsed = Time.unscaledTime >= nextRayTextureUpdateTime;
+        if (!rayTextureDirty && (!movedEnough || !intervalElapsed))
+        {
+            return;
+        }
+
+        UpdateRayDistanceTexture(origin);
+        lastRayTextureOrigin = origin;
+        rayTextureDirty = false;
+        nextRayTextureUpdateTime = Time.unscaledTime + Mathf.Max(0.01f, rayTextureUpdateInterval);
+    }
+
+    private void UpdateRayDistanceTexture(Vector2 origin)
+    {
+        EnsureRayDistanceTexture();
+
         float maxDistance = visionRadius + feather;
         for (int i = 0; i < rayCount; i++)
         {
@@ -133,6 +158,7 @@ public class PlayerVisionMask : MonoBehaviour
             wrapMode = TextureWrapMode.Repeat
         };
         rayDistancePixels = new Color[rayCount];
+        rayTextureDirty = true;
     }
 
     private float CastVisionRay(Vector2 origin, Vector2 direction, float maxDistance)

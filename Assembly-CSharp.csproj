@@ -65,12 +65,15 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Assets\Scripts\SensoryEventType.cs" />
+    <Compile Include="Assets\Scripts\AttackActionData.cs" />
+    <Compile Include="Assets\Scripts\LocalHitStopService.cs" />
     <Compile Include="Assets\Scripts\PlayerVisionMask.cs" />
     <Compile Include="Assets\Scripts\WeaponExecutorRegistry.cs" />
     <Compile Include="Assets\Scripts\SpellWeaponExecutor.cs" />
     <Compile Include="Assets\Scripts\EnemyConfigDatabase.cs" />
     <Compile Include="Assets\Scripts\SwordWeaponExecutor.cs" />
     <Compile Include="Assets\Scripts\EnemyArchetype.cs" />
+    <Compile Include="Assets\Scripts\SpawnDenController.cs" />
     <Compile Include="Assets\Scripts\IDamageable.cs" />
     <Compile Include="Assets\Scripts\SimpleEnemyAI.cs" />
     <Compile Include="Assets\Scripts\SafeRoomManager.cs" />
@@ -89,10 +92,15 @@
     <Compile Include="Assets\Scripts\FeedbackPayload.cs" />
     <Compile Include="Assets\Scripts\BuffConfigDatabase.cs" />
     <Compile Include="Assets\Scripts\DamageContext.cs" />
+    <Compile Include="Assets\Scripts\SpawnDenConfigDatabase.cs" />
     <Compile Include="Assets\Scripts\PlayerCombatController.cs" />
     <Compile Include="Assets\Scripts\PrimaryOnlyWeaponExecutor.cs" />
+    <Compile Include="Assets\Scripts\PlayerInventory.cs" />
+    <Compile Include="Assets\Scripts\SpawnDenView.cs" />
+    <Compile Include="Assets\Scripts\GameCatalogDatabase.cs" />
     <Compile Include="Assets\Scripts\CameraShakeFeedback.cs" />
     <Compile Include="Assets\Scripts\EnemyRegistry.cs" />
+    <Compile Include="Assets\Scripts\DamageableHurtbox.cs" />
     <Compile Include="Assets\Scripts\ObstacleHitFeedback.cs" />
     <Compile Include="Assets\Scripts\HitResult.cs" />
     <Compile Include="Assets\Scripts\GridRouteMapGenerator.cs" />
@@ -101,6 +109,7 @@
     <Compile Include="Assets\Scripts\PrototypeWeaponExecutor.cs" />
     <Compile Include="Assets\Scripts\MouseWorldInput.cs" />
     <Compile Include="Assets\Scripts\AttackVisualProfile.cs" />
+    <Compile Include="Assets\Scripts\DropTableResolver.cs" />
     <Compile Include="Assets\Scripts\SensoryEventBus.cs" />
     <Compile Include="Assets\Scripts\SafeRoomPortal.cs" />
     <Compile Include="Assets\Scripts\AttackWaveEffect.cs" />
@@ -112,6 +121,7 @@
     <Compile Include="Assets\Scripts\IWeaponExecutionContext.cs" />
     <Compile Include="Assets\Scripts\ImpactBlurFeedback.cs" />
     <Compile Include="Assets\Scripts\WeaponSpecialConfigDatabase.cs" />
+    <Compile Include="Assets\Scripts\ILocalFreezable.cs" />
     <Compile Include="Assets\Scripts\ShopGoodsConfigDatabase.cs" />
     <Compile Include="Assets\Scripts\EnemyBehaviorKind.cs" />
     <Compile Include="Assets\Scripts\EnemySenseConfigDatabase.cs" />
@@ -120,15 +130,19 @@
     <Compile Include="Assets\Scripts\WeaponDefinition.cs" />
     <Compile Include="Assets\Scripts\PlayerWeaponActions.cs" />
     <Compile Include="Assets\Scripts\CombatPhase.cs" />
+    <Compile Include="Assets\Scripts\EnemySpawnFactory.cs" />
     <Compile Include="Assets\Scripts\HitVolumeFeedback.cs" />
     <Compile Include="Assets\Scripts\PrototypeDamageable.cs" />
     <Compile Include="Assets\Scripts\CharacterStats.cs" />
+    <Compile Include="Assets\Scripts\SpawnDenModel.cs" />
     <Compile Include="Assets\Scripts\WeaponActionKind.cs" />
     <Compile Include="Assets\Scripts\KnifeWeaponExecutor.cs" />
+    <Compile Include="Assets\Scripts\KnockbackReceiver.cs" />
     <Compile Include="Assets\Scripts\UIManager.cs" />
     <Compile Include="Assets\Scripts\HitStopManager.cs" />
     <Compile Include="Assets\Scripts\WeaponTiming.cs" />
     <Compile Include="Assets\Scripts\CombatFeedbackBus.cs" />
+    <Compile Include="Assets\Scripts\WorldHostilityDirector.cs" />
     <Compile Include="Assets\Scripts\SafeRoomInterestVfx.cs" />
     <Compile Include="Assets\Scripts\PlayerInputManager.cs" />
     <Compile Include="Assets\Scripts\AttackVisualProfileResolver.cs" />

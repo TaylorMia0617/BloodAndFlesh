@@ -14,6 +14,12 @@ public partial class PlayerCombatController
 
         while (elapsed < duration)
         {
+            if (IsLocallyHitStopped)
+            {
+                yield return null;
+                continue;
+            }
+
             elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(elapsed / duration);
             float eased = Mathf.Sin(t * Mathf.PI * 0.5f);
@@ -49,7 +55,7 @@ public partial class PlayerCombatController
             weaponView.PlayBlockPose(currentWeapon, attackDirection, duration);
         }
 
-        yield return new WaitForSeconds(duration);
+        yield return WaitCombatSeconds(duration);
         EndCombatAction();
     }
 
@@ -77,16 +83,21 @@ public partial class PlayerCombatController
         Vector2 impactPoint = end;
         while (elapsed < duration)
         {
+            if (IsLocallyHitStopped)
+            {
+                yield return null;
+                continue;
+            }
+
             elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(elapsed / duration);
             float eased = 1f - Mathf.Pow(1f - t, 2f);
             Vector2 currentPosition = playerBody != null ? playerBody.position : (Vector2)transform.position;
             Vector2 requestedPosition = Vector2.Lerp(start, end, eased);
             Vector2 nextPosition = requestedPosition;
-            if (TryFindSwordDashEnemyHit(currentPosition, requestedPosition, out SimpleEnemyAI hitEnemy, out impactPoint))
+            if (TryFindSwordDashEnemyHit(currentPosition, requestedPosition, out _, out impactPoint))
             {
                 enemyImpact = true;
-                hitEnemy.ApplyStun(1f);
                 nextPosition = impactPoint - forward * 0.28f;
             }
 
@@ -101,7 +112,7 @@ public partial class PlayerCombatController
 
             if (enemyImpact)
             {
-                TriggerSwordDashImpact(impactPoint, false);
+                TriggerSwordDashImpact(impactPoint, true);
                 break;
             }
 
@@ -115,7 +126,7 @@ public partial class PlayerCombatController
 
         if (recovery > 0f)
         {
-            yield return new WaitForSeconds(recovery);
+            yield return WaitCombatSeconds(recovery);
         }
         EndCombatAction();
     }
@@ -275,13 +286,13 @@ public partial class PlayerCombatController
         float active = Mathf.Max(0.01f, special.active);
         float recovery = Mathf.Max(0f, special.recovery);
         LockFacingFor(windup + active + recovery);
-        yield return new WaitForSeconds(windup);
+        yield return WaitCombatSeconds(windup);
         if (inputManager != null)
         {
             inputManager.SetTemporarySpeedMultiplier(Mathf.Max(0.01f, special.movementSpeedMultiplier), active);
         }
         PlayAttackWave(sweepWeapon, attackDirection, Mathf.Max(0.01f, special.visualMultiplier));
-        yield return new WaitForSeconds(active + recovery);
+        yield return WaitCombatSeconds(active + recovery);
         EndCombatAction();
     }
 
@@ -326,7 +337,7 @@ public partial class PlayerCombatController
             weaponView.PlayAttackAnimation(currentWeapon, lastAimDirection, Mathf.Min(0.12f, active), Mathf.Min(0.1f, active), Mathf.Min(0.16f, active), false);
         }
 
-        yield return new WaitForSeconds(active);
+        yield return WaitCombatSeconds(active);
         EndCombatAction();
     }
 
@@ -337,7 +348,8 @@ public partial class PlayerCombatController
         weapon.weaponType = WeaponType.Spear;
         weapon.displayName = "Spear Sweep";
         weapon.weaponSprite = source.weaponSprite;
-        weapon.damage = source.damage;
+        weapon.physicalDamage = source.physicalDamage;
+        weapon.magicDamage = source.magicDamage;
         weapon.armorPiercing = source.armorPiercing;
         weapon.attackRange = Mathf.Max(1.55f, source.attackRange * 0.82f);
         weapon.attackRadius = Mathf.Max(0.35f, source.attackRadius * 1.1f);
@@ -419,6 +431,12 @@ public partial class PlayerCombatController
         float elapsed = 0f;
         while (elapsed < duration)
         {
+            if (IsLocallyHitStopped)
+            {
+                yield return null;
+                continue;
+            }
+
             elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(elapsed / Mathf.Max(0.001f, duration));
             float pulse = 1f + Mathf.Sin(Time.time * 18f) * 0.05f;
@@ -444,7 +462,7 @@ public partial class PlayerCombatController
 
     private IEnumerator HideFailedPulse()
     {
-        yield return new WaitForSeconds(0.12f);
+        yield return WaitCombatSeconds(0.12f);
         if (shieldVisual != null && shieldRoutine == null)
         {
             shieldVisual.enabled = false;
@@ -470,6 +488,12 @@ public partial class PlayerCombatController
         float elapsed = 0f;
         while (elapsed < duration)
         {
+            if (IsLocallyHitStopped)
+            {
+                yield return null;
+                continue;
+            }
+
             elapsed += Time.deltaTime;
             if (playerSpriteRenderer != null)
             {

@@ -6,10 +6,13 @@ public class CharacterStats : MonoBehaviour
     [Header("Core")]
     public float maxHealth = 70f;
     public float armor = 0f;
+    [Range(0f, 1f)] public float magicImmunity = 0f;
     public float moveSpeed = 3f;
     public float moveDelay = 0.15f;
 
     [Header("Combat")]
+    public float physicalAttack = 0f;
+    public float magicAttack = 0f;
     public float attack = 0f;
     public float damageMultiplier = 1f;
     [Range(0f, 1f)] public float critChance = 0f;
@@ -53,18 +56,17 @@ public class CharacterStats : MonoBehaviour
         return ApplyDamageDetailed(amount, armorPiercing, attacker).finalDamage;
     }
 
-    public DamageResult ApplyDamageDetailed(float amount, float armorPiercing = 0f, CharacterStats attacker = null)
+    public DamageResult ApplyDamageDetailed(float amount, float armorPiercing = 0f, CharacterStats attacker = null, bool canCrit = true)
     {
         if (IsDamageImmune || IsUntargetable)
         {
             return new DamageResult(0f, 0f, 0f, false);
         }
 
-        DamageResult result = DamageCalculator.Calculate(attacker, this, amount, armorPiercing);
+        DamageResult result = DamageCalculator.Calculate(attacker, this, amount, 0f, armorPiercing, canCrit);
         bool wasAlive = IsAlive;
-        CurrentHealth = Mathf.Max(0f, CurrentHealth - result.finalDamage);
-        OnHealthChanged?.Invoke(CurrentHealth, Mathf.Max(1f, maxHealth));
-        if (wasAlive && !IsAlive)
+        ApplyDamageResult(result, out bool killed);
+        if (wasAlive && killed)
         {
             OnDeath?.Invoke(this);
         }
@@ -79,12 +81,36 @@ public class CharacterStats : MonoBehaviour
             return HitResult.Rejected;
         }
 
+        DamageResult damage = DamageCalculator.Calculate(context.attackerStats, this, context.physicalDamage, context.magicDamage, context.armorPiercing, context.canCrit);
         bool wasAlive = IsAlive;
-        DamageResult damage = ApplyDamageDetailed(context.baseDamage, context.armorPiercing, context.attackerStats);
+        ApplyDamageResult(damage, out bool killed);
+        if (wasAlive && !IsAlive)
+        {
+            OnDeath?.Invoke(this);
+        }
+
         bool dealtDamage = damage.finalDamage > 0f;
-        HitResult result = new HitResult(true, dealtDamage, wasAlive && !IsAlive, damage.isCritical, damage.finalDamage, context.feedback);
+        HitResult result = new HitResult(true, dealtDamage, wasAlive && killed, damage.isCritical, damage.finalDamage, context.feedback);
         OnDamaged?.Invoke(context, result);
         return result;
+    }
+
+    private void ApplyDamageResult(DamageResult damage, out bool killed)
+    {
+        bool wasAlive = IsAlive;
+        if (damage.physicalDamage > 0f)
+        {
+            CurrentHealth = Mathf.Max(0f, CurrentHealth - damage.physicalDamage);
+            OnHealthChanged?.Invoke(CurrentHealth, Mathf.Max(1f, maxHealth));
+        }
+
+        if (IsAlive && damage.magicDamage > 0f)
+        {
+            CurrentHealth = Mathf.Max(0f, CurrentHealth - damage.magicDamage);
+            OnHealthChanged?.Invoke(CurrentHealth, Mathf.Max(1f, maxHealth));
+        }
+
+        killed = wasAlive && !IsAlive;
     }
 
     public bool TrySpendMana(float amount)
@@ -114,6 +140,28 @@ public class CharacterStats : MonoBehaviour
 
         CurrentMana = Mathf.Min(Mathf.Max(0f, maxMana), CurrentMana + Mathf.Max(0f, amount));
         OnManaChanged?.Invoke(CurrentMana, Mathf.Max(0f, maxMana));
+    }
+
+    public void RestoreHealth(float amount)
+    {
+        CurrentHealth = Mathf.Min(Mathf.Max(1f, maxHealth), CurrentHealth + Mathf.Max(0f, amount));
+        OnHealthChanged?.Invoke(CurrentHealth, Mathf.Max(1f, maxHealth));
+    }
+
+    public void ModifyMaxHealth(float delta, bool healByDelta = true)
+    {
+        float previousMax = Mathf.Max(1f, maxHealth);
+        maxHealth = Mathf.Max(1f, maxHealth + delta);
+        if (healByDelta && delta > 0f)
+        {
+            CurrentHealth = Mathf.Min(maxHealth, CurrentHealth + delta);
+        }
+        else if (maxHealth < previousMax)
+        {
+            CurrentHealth = Mathf.Min(CurrentHealth, maxHealth);
+        }
+
+        OnHealthChanged?.Invoke(CurrentHealth, Mathf.Max(1f, maxHealth));
     }
 
     public float GetManaCrystalValue(int crystalCount = 3)

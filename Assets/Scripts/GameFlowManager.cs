@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
 public class GameFlowManager : MonoBehaviour
@@ -35,22 +36,58 @@ public class GameFlowManager : MonoBehaviour
     [SerializeField] private RunLevelManager runLevelManager;
     [SerializeField] private Camera mainCamera;
 
-    [Header("Safe Room Blessing UI Layout")]
-    [SerializeField] private Vector2 blessingBackgroundSize = new Vector2(1080f, 660f);
-    [SerializeField] private Vector2 blessingBackgroundPosition = new Vector2(210f, -8f);
-    [SerializeField] private Vector2 blessingGoddessSize = new Vector2(500f, 740f);
-    [SerializeField] private Vector2 blessingGoddessPosition = new Vector2(255f, 0f);
-    [SerializeField] private Vector2 blessingHintPosition = new Vector2(208f, 600f);
-    [SerializeField] private Vector2 blessingCardSize = new Vector2(760f, 148f);
-    [SerializeField] private Vector2 blessingCardStartPosition = new Vector2(-700f, 150f);
-    [SerializeField] private float blessingCardVerticalSpacing = 172f;
-    [SerializeField] private Vector2 blessingCardTextOffset = new Vector2(112f, 0f);
+    [Header("Safe Room Blessing UI Visual Layout")]
+    [SerializeField] private Vector2 blessingPanelSize = new Vector2(1080f, 660f);
+    [SerializeField] private Vector2 blessingPanelPosition = Vector2.zero;
+    [SerializeField] private Vector2 blessingCardSize = new Vector2(520f, 108f);
+    [SerializeField] private Vector2 blessingCardStartPosition = new Vector2(225f, 170f);
+    [SerializeField] private float blessingCardVerticalSpacing = 150f;
+    [SerializeField] private Vector2 blessingCardTitleSize = new Vector2(390f, 36f);
+    [SerializeField] private Vector2 blessingCardDescriptionSize = new Vector2(420f, 44f);
+    [SerializeField] private Vector2 blessingCardTextOffset = new Vector2(76f, 0f);
     [SerializeField] private Vector2 blessingIconSize = new Vector2(72f, 72f);
     [SerializeField] private Vector2 blessingIconPosition = new Vector2(58f, 0f);
-    [SerializeField] private Vector2 blessingConfirmButtonPosition = new Vector2(-500f, 82f);
-    [SerializeField] private Vector2 blessingCancelButtonPosition = new Vector2(-300f, 82f);
+    [SerializeField] private Vector2 blessingGoddessPortraitSize = new Vector2(360f, 610f);
+    [SerializeField] private Vector2 blessingGoddessPortraitPosition = new Vector2(-315f, -12f);
+    [SerializeField] private Vector2 blessingConfirmButtonPosition = new Vector2(285f, -258f);
+    [SerializeField] private Vector2 blessingCancelButtonPosition = new Vector2(480f, -258f);
     [SerializeField] private float blessingSelectionOutlinePadding = 8f;
     [SerializeField] private int blessingSelectionOutlineThickness = 5;
+
+    [Header("Safe Room Task UI Visual Layout")]
+    [SerializeField] private Vector2 taskPanelSize = new Vector2(980f, 620f);
+    [SerializeField] private Vector2 taskPanelPosition = Vector2.zero;
+    [SerializeField] private Vector2 taskListPosition = new Vector2(-310f, 22f);
+    [SerializeField] private Vector2 taskListSize = new Vector2(270f, 430f);
+    [SerializeField] private Vector2 taskButtonSize = new Vector2(250f, 60f);
+    [SerializeField] private float taskButtonVerticalSpacing = 70f;
+    [SerializeField] private Vector2 taskDetailTitlePosition = new Vector2(210f, 205f);
+    [SerializeField] private Vector2 taskDetailTitleSize = new Vector2(430f, 42f);
+    [SerializeField] private Vector2 taskDetailBodyPosition = new Vector2(210f, 30f);
+    [SerializeField] private Vector2 taskDetailBodySize = new Vector2(450f, 280f);
+    [SerializeField] private Vector2 taskAcceptButtonPosition = new Vector2(-230f, 50f);
+    [SerializeField] private Vector2 taskCloseButtonPosition = new Vector2(-70f, 50f);
+
+    [Header("Safe Room Shop UI Visual Layout")]
+    [SerializeField] private Vector2 shopPanelSize = new Vector2(980f, 620f);
+    [SerializeField] private Vector2 shopPanelPosition = Vector2.zero;
+    [SerializeField] private Vector2 shopSlotSize = new Vector2(138f, 132f);
+    [SerializeField] private Vector2 shopSlotStartPosition = new Vector2(120f, 126f);
+    [SerializeField] private Vector2 shopSlotSpacing = new Vector2(170f, 162f);
+    [SerializeField] private Vector2 shopSpeechPosition = new Vector2(-245f, -220f);
+    [SerializeField] private Vector2 shopSpeechSize = new Vector2(390f, 88f);
+    [SerializeField] private Vector2 shopBuyButtonPosition = new Vector2(-230f, 50f);
+    [SerializeField] private Vector2 shopCloseButtonPosition = new Vector2(-70f, 50f);
+
+    [Header("Inventory UI")]
+    [SerializeField] private Vector2 inventoryPanelSize = new Vector2(720f, 620f);
+    [SerializeField] private Vector2 inventoryGridStart = new Vector2(-252f, 160f);
+    [SerializeField] private Vector2 inventorySlotSize = new Vector2(112f, 88f);
+    [SerializeField] private Vector2 inventorySlotSpacing = new Vector2(126f, 98f);
+    [SerializeField] private Vector2 inventoryDescriptionPosition = new Vector2(0f, -155f);
+    [SerializeField] private Vector2 inventoryDescriptionSize = new Vector2(600f, 120f);
+    [SerializeField] private Vector2 inventoryUseButtonPosition = new Vector2(175f, -260f);
+    [SerializeField] private Vector2 inventoryCloseButtonPosition = new Vector2(320f, -260f);
 
     private Canvas canvas;
     private RectTransform startPanel;
@@ -73,8 +110,15 @@ public class GameFlowManager : MonoBehaviour
     private Text healthBarText;
     private Image[] manaDiamonds;
     private Image[] manaDiamondFills;
+    private Text goldText;
     private CharacterStats observedPlayerStats;
+    private PlayerInventory observedInventory;
     private PlayerBuffPool observedBuffPool;
+    private RectTransform inventoryPanel;
+    private Text inventoryDescriptionText;
+    private Image[] inventorySlotImages;
+    private Text[] inventorySlotLabels;
+    private int selectedInventorySlot;
     private RectTransform buffHudRoot;
     private Image[] buffIcons;
     private Image[] buffSlotBacks;
@@ -107,6 +151,11 @@ public class GameFlowManager : MonoBehaviour
 
     private void Update()
     {
+        if (state == GameFlowState.Playing && Keyboard.current != null && Keyboard.current.bKey.wasPressedThisFrame)
+        {
+            ToggleInventoryPanel();
+        }
+
         UpdateWeaponCooldownHud();
         UpdateHotbarSelectionHud();
     }
@@ -139,6 +188,7 @@ public class GameFlowManager : MonoBehaviour
         playerCombatController.SetWeapon(weapon);
         UpdateWeaponSlotIcon(weapon);
         ObservePlayerStats(playerInputManager != null ? playerInputManager.GetComponent<CharacterStats>() : null);
+        ObserveInventory(playerInputManager != null ? EnsurePlayerInventory(playerInputManager.gameObject) : null);
         ObservePlayerBuffPool(playerInputManager != null ? EnsurePlayerBuffPool(playerInputManager.gameObject) : null);
 
         mapGenerator.GenerateMap();
@@ -159,6 +209,13 @@ public class GameFlowManager : MonoBehaviour
             observedPlayerStats.OnHealthChanged -= RefreshHealthHud;
             observedPlayerStats.OnManaChanged -= RefreshManaHud;
             observedPlayerStats = null;
+        }
+
+        if (observedInventory != null)
+        {
+            observedInventory.OnGoldChanged -= RefreshGoldHud;
+            observedInventory.OnInventoryChanged -= RefreshInventoryPanel;
+            observedInventory = null;
         }
 
         if (observedBuffPool != null)
@@ -268,8 +325,8 @@ public class GameFlowManager : MonoBehaviour
         {
             weaponSlot.sizeDelta = new Vector2(132f, 64f);
         }
-        CreateWeaponAbilitySlot(weaponSlot, "LMB", new Vector2(-33f, 0f), out primaryAttackIcon, out primaryCooldownFill, out primaryCooldownText);
-        CreateWeaponAbilitySlot(weaponSlot, "RMB", new Vector2(33f, 0f), out specialAttackIcon, out specialCooldownFill, out specialCooldownText);
+        CreateWeaponAbilitySlot(weaponSlot, new Vector2(-33f, 0f), out primaryAttackIcon, out primaryCooldownFill, out primaryCooldownText);
+        CreateWeaponAbilitySlot(weaponSlot, new Vector2(33f, 0f), out specialAttackIcon, out specialCooldownFill, out specialCooldownText);
         weaponSlotOutline = CreateSlotOutline(weaponSlot);
 
         itemSlotOutlines = new Image[5];
@@ -278,6 +335,7 @@ public class GameFlowManager : MonoBehaviour
             Text itemLabel = CreateHudBox(hudPanel, (i + 1).ToString(), new Vector2(0.39f + i * 0.055f, 0.05f));
             itemSlotOutlines[i] = CreateSlotOutline(itemLabel.transform.parent as RectTransform);
         }
+        CreateInventoryHudButton(hudPanel, new Vector2(0.675f, 0.05f));
 
         string[] skills = { "Q", "E", "R", "T" };
         for (int i = 0; i < skills.Length; i++)
@@ -288,6 +346,7 @@ public class GameFlowManager : MonoBehaviour
         CreatePlayerResourceHud(hudPanel);
         CreateBuffHud(hudPanel);
         CreateSafeRoomPanel();
+        CreateInventoryPanel();
     }
 
     private RectTransform CreatePanel(string panelName, Color color)
@@ -368,6 +427,44 @@ public class GameFlowManager : MonoBehaviour
         keyLabel.fontStyle = FontStyle.Bold;
         keyLabel.raycastTarget = false;
         return keyLabel;
+    }
+
+    private void CreateInventoryHudButton(RectTransform parent, Vector2 anchor)
+    {
+        GameObject buttonObject = new GameObject("InventoryButton");
+        buttonObject.transform.SetParent(parent, false);
+        RectTransform rect = buttonObject.AddComponent<RectTransform>();
+        rect.anchorMin = anchor;
+        rect.anchorMax = anchor;
+        rect.sizeDelta = new Vector2(64f, 64f);
+        rect.anchoredPosition = Vector2.zero;
+
+        Image background = buttonObject.AddComponent<Image>();
+        background.color = new Color(0.08f, 0.12f, 0.16f, 0.9f);
+
+        Button button = buttonObject.AddComponent<Button>();
+        button.onClick.AddListener(ToggleInventoryPanel);
+
+        GameObject iconObject = new GameObject("BackpackIcon");
+        iconObject.transform.SetParent(rect, false);
+        RectTransform iconRect = iconObject.AddComponent<RectTransform>();
+        iconRect.anchorMin = new Vector2(0.5f, 0.5f);
+        iconRect.anchorMax = new Vector2(0.5f, 0.5f);
+        iconRect.pivot = new Vector2(0.5f, 0.5f);
+        iconRect.sizeDelta = new Vector2(46f, 46f);
+        iconRect.anchoredPosition = new Vector2(4f, -2f);
+        Image icon = iconObject.AddComponent<Image>();
+        icon.sprite = Resources.Load<Sprite>("Arts/UI/HUD/icon_backpack_comic");
+        icon.preserveAspect = true;
+        icon.raycastTarget = false;
+
+        Text keyLabel = CreateLabel(rect, "B", 15, new Vector2(0f, 1f), new Vector2(28f, 22f));
+        RectTransform keyRect = keyLabel.rectTransform;
+        keyRect.pivot = new Vector2(0f, 1f);
+        keyRect.anchoredPosition = new Vector2(5f, -4f);
+        keyLabel.alignment = TextAnchor.UpperLeft;
+        keyLabel.fontStyle = FontStyle.Bold;
+        keyLabel.raycastTarget = false;
     }
 
     private Image CreateSlotOutline(RectTransform slot)
@@ -471,7 +568,7 @@ public class GameFlowManager : MonoBehaviour
         weaponSlotIcon.enabled = false;
     }
 
-    private void CreateWeaponAbilitySlot(RectTransform weaponSlot, string label, Vector2 anchoredPosition, out Image icon, out Image cooldownFill, out Text cooldownText)
+    private void CreateWeaponAbilitySlot(RectTransform weaponSlot, Vector2 anchoredPosition, out Image icon, out Image cooldownFill, out Text cooldownText)
     {
         icon = null;
         cooldownFill = null;
@@ -481,7 +578,7 @@ public class GameFlowManager : MonoBehaviour
             return;
         }
 
-        GameObject slotObject = new GameObject(label + "AbilitySlot");
+        GameObject slotObject = new GameObject("WeaponAbilitySlot");
         slotObject.transform.SetParent(weaponSlot, false);
         RectTransform slotRect = slotObject.AddComponent<RectTransform>();
         slotRect.anchorMin = new Vector2(0.5f, 0.5f);
@@ -523,15 +620,6 @@ public class GameFlowManager : MonoBehaviour
         cooldownFill.raycastTarget = false;
         cooldownFill.enabled = false;
         cooldownFill.fillAmount = 0f;
-
-        Text keyText = CreateLabel(slotRect, label, 10, new Vector2(0f, 1f), new Vector2(30f, 16f));
-        RectTransform keyRect = keyText.rectTransform;
-        keyRect.pivot = new Vector2(0f, 1f);
-        keyRect.anchoredPosition = new Vector2(4f, -3f);
-        keyText.alignment = TextAnchor.UpperLeft;
-        keyText.fontStyle = FontStyle.Bold;
-        keyText.color = new Color(0.86f, 0.95f, 1f, 0.95f);
-        keyText.raycastTarget = false;
 
         cooldownText = CreateLabel(slotRect, string.Empty, 17, new Vector2(0.5f, 0.5f), slotRect.sizeDelta);
         cooldownText.fontStyle = FontStyle.Bold;
@@ -636,6 +724,23 @@ public class GameFlowManager : MonoBehaviour
             manaDiamondFills[i].color = new Color(0.16f, 0.66f, 1f, 0.96f);
             manaDiamondFills[i].raycastTarget = false;
         }
+
+        GameObject goldObject = new GameObject("GoldText");
+        goldObject.transform.SetParent(rect, false);
+        RectTransform goldRect = goldObject.AddComponent<RectTransform>();
+        goldRect.anchorMin = new Vector2(0f, 0.18f);
+        goldRect.anchorMax = new Vector2(0f, 0.18f);
+        goldRect.pivot = new Vector2(0f, 0.5f);
+        goldRect.anchoredPosition = new Vector2(128f, 0f);
+        goldRect.sizeDelta = new Vector2(160f, 30f);
+        goldText = goldObject.AddComponent<Text>();
+        goldText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        goldText.fontSize = 18;
+        goldText.fontStyle = FontStyle.Bold;
+        goldText.alignment = TextAnchor.MiddleLeft;
+        goldText.color = new Color(1f, 0.84f, 0.28f, 1f);
+        goldText.raycastTarget = false;
+        goldText.text = "G 0";
     }
 
     private void CreateBuffHud(RectTransform parent)
@@ -686,6 +791,124 @@ public class GameFlowManager : MonoBehaviour
         }
     }
 
+    private void CreateInventoryPanel()
+    {
+        inventoryPanel = CreatePanel("InventoryPanel", new Color(0.025f, 0.026f, 0.03f, 0.94f));
+        inventoryPanel.anchorMin = new Vector2(0.5f, 0.5f);
+        inventoryPanel.anchorMax = new Vector2(0.5f, 0.5f);
+        inventoryPanel.pivot = new Vector2(0.5f, 0.5f);
+        inventoryPanel.sizeDelta = inventoryPanelSize;
+        inventoryPanel.anchoredPosition = Vector2.zero;
+
+        Text title = CreateLabel(inventoryPanel, "背包", 32, new Vector2(0.5f, 1f), new Vector2(360f, 54f));
+        title.rectTransform.anchoredPosition = new Vector2(0f, -42f);
+        title.fontStyle = FontStyle.Bold;
+        title.color = new Color(1f, 0.86f, 0.42f, 1f);
+
+        inventorySlotImages = new Image[16];
+        inventorySlotLabels = new Text[16];
+        for (int i = 0; i < inventorySlotImages.Length; i++)
+        {
+            int capturedIndex = i;
+            GameObject slot = CreateButtonObject(inventoryPanel, string.Empty, new Vector2(0.5f, 0.5f), inventorySlotSize, () => SelectInventorySlot(capturedIndex));
+            RectTransform slotRect = slot.GetComponent<RectTransform>();
+            slotRect.anchoredPosition = inventoryGridStart + new Vector2((i % 4) * inventorySlotSpacing.x, -(i / 4) * inventorySlotSpacing.y);
+            inventorySlotImages[i] = slot.GetComponent<Image>();
+            inventorySlotImages[i].color = new Color(0.07f, 0.08f, 0.09f, 0.94f);
+
+            Text label = CreateLabel(slotRect, string.Empty, 15, new Vector2(0.5f, 0.5f), inventorySlotSize - new Vector2(10f, 10f));
+            label.alignment = TextAnchor.MiddleCenter;
+            label.color = Color.white;
+            inventorySlotLabels[i] = label;
+        }
+
+        inventoryDescriptionText = CreateLabel(inventoryPanel, "选择一个物品查看说明。", 18, new Vector2(0.5f, 0.5f), inventoryDescriptionSize);
+        inventoryDescriptionText.rectTransform.anchoredPosition = inventoryDescriptionPosition;
+        inventoryDescriptionText.alignment = TextAnchor.MiddleLeft;
+        inventoryDescriptionText.color = new Color(0.86f, 0.82f, 0.74f, 1f);
+
+        GameObject useButton = CreateButtonObject(inventoryPanel, "使用", new Vector2(0.5f, 0.5f), new Vector2(120f, 46f), UseSelectedInventoryItem);
+        useButton.GetComponent<RectTransform>().anchoredPosition = inventoryUseButtonPosition;
+        ApplySafeRoomButtonSprite(useButton);
+
+        GameObject closeButton = CreateButtonObject(inventoryPanel, "关闭", new Vector2(0.5f, 0.5f), new Vector2(120f, 46f), HideInventoryPanel);
+        closeButton.GetComponent<RectTransform>().anchoredPosition = inventoryCloseButtonPosition;
+        ApplySafeRoomButtonSprite(closeButton);
+
+        selectedInventorySlot = -1;
+        SetPanel(inventoryPanel, false);
+    }
+
+    private void ToggleInventoryPanel()
+    {
+        if (inventoryPanel == null)
+        {
+            return;
+        }
+
+        if (inventoryPanel.gameObject.activeSelf)
+        {
+            HideInventoryPanel();
+            return;
+        }
+
+        selectedInventorySlot = -1;
+        RefreshInventoryPanel();
+        inventoryPanel.SetAsLastSibling();
+        SetSafeRoomModalOpen(true);
+        SetPanel(inventoryPanel, true);
+    }
+
+    private void HideInventoryPanel()
+    {
+        SetPanel(inventoryPanel, false);
+        SetSafeRoomModalOpen(false);
+    }
+
+    private void SelectInventorySlot(int index)
+    {
+        selectedInventorySlot = index;
+        RefreshInventoryPanel();
+    }
+
+    private void UseSelectedInventoryItem()
+    {
+        if (observedInventory == null || selectedInventorySlot < 0)
+        {
+            return;
+        }
+
+        if (observedInventory.UseItem(selectedInventorySlot, observedPlayerStats))
+        {
+            RefreshInventoryPanel();
+            UpdatePlayerResourceHud();
+        }
+    }
+
+    private void RefreshInventoryPanel()
+    {
+        if (inventorySlotImages == null || inventorySlotLabels == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < inventorySlotImages.Length; i++)
+        {
+            PlayerInventory.InventoryItem item = observedInventory != null ? observedInventory.GetItem(i) : null;
+            bool selected = i == selectedInventorySlot;
+            inventorySlotImages[i].color = selected ? new Color(0.78f, 0.58f, 0.24f, 0.96f) : new Color(0.07f, 0.08f, 0.09f, 0.94f);
+            inventorySlotLabels[i].text = item != null ? $"{item.displayName}\nx{item.quantity}" : string.Empty;
+        }
+
+        PlayerInventory.InventoryItem selectedItem = selectedInventorySlot >= 0 && observedInventory != null ? observedInventory.GetItem(selectedInventorySlot) : null;
+        if (inventoryDescriptionText != null)
+        {
+            inventoryDescriptionText.text = selectedItem != null
+                ? $"{selectedItem.displayName}\n{selectedItem.category} / {selectedItem.rarity}\n{selectedItem.Summary}"
+                : "选择一个物品查看说明。";
+        }
+    }
+
     private void CreateSafeRoomPanel()
     {
         safeRoomPanel = CreatePanel("SafeRoomModalPanel", new Color(0.02f, 0.025f, 0.032f, 0.92f));
@@ -721,33 +944,21 @@ public class GameFlowManager : MonoBehaviour
         }
 
         ConfigureSafeRoomPanelFrame(true);
-        safeRoomPanelTitle.text = title.Replace("Buff", "祝福");
+        safeRoomPanelTitle.text = string.Empty;
         safeRoomPanelBody.text = string.Empty;
         ClearSafeRoomPanelButtons();
 
-        GameObject blessingBackground = CreatePanelImage("BlessingScreenBackground", new Vector2(0.5f, 0.5f), blessingBackgroundSize, blessingBackgroundPosition, Color.white);
+        GameObject blessingBackground = CreatePanelImage("BlessingScreenBackground", new Vector2(0.5f, 0.5f), blessingPanelSize, blessingPanelPosition, Color.white);
         Image blessingBackgroundImage = blessingBackground.GetComponent<Image>();
-        blessingBackgroundImage.sprite = Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_blessing_panel_from_mock") ?? Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_blessing_screen_bg");
+        blessingBackgroundImage.sprite = Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_blessing_panel_comic_full") ?? Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_blessing_screen_bg_comic") ?? Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_blessing_panel_from_mock") ?? Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_blessing_screen_bg");
         blessingBackgroundImage.type = Image.Type.Sliced;
         blessingBackground.transform.SetAsFirstSibling();
 
-        GameObject portraitObject = CreatePanelImage("BlessingGoddessPortrait", new Vector2(0f, 0f), blessingGoddessSize, blessingGoddessPosition, Color.clear);
-        RectTransform portraitRect = portraitObject.GetComponent<RectTransform>();
-        portraitRect.pivot = new Vector2(0.5f, 0f);
-        portraitRect.anchorMin = new Vector2(0f, 0f);
-        portraitRect.anchorMax = new Vector2(0f, 0f);
-        portraitRect.anchoredPosition = blessingGoddessPosition;
-        Image portrait = portraitObject.GetComponent<Image>();
-        portrait.sprite = Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_goddess_portrait") ?? CreateGoddessPortraitSprite();
-        portrait.color = Color.white;
-        portrait.preserveAspect = true;
-
-        Text goddessName = CreateTrackedLabel("BlessingGoddessName", "无名神像", 26, new Vector2(0f, 1f), new Vector2(260f, 42f), new Vector2(208f, -42f));
-        goddessName.alignment = TextAnchor.MiddleCenter;
-        goddessName.color = new Color(1f, 0.88f, 0.58f, 1f);
-        Text hint = CreateTrackedLabel("BlessingHint", "选择一项祝福。确认后神像会沉默，本层出口开启。", 18, new Vector2(0f, 0f), new Vector2(300f, 72f), blessingHintPosition);
-        hint.alignment = TextAnchor.MiddleCenter;
-        hint.color = new Color(0.82f, 0.86f, 0.88f, 0.9f);
+        Image goddessPortrait = CreatePanelImage("BlessingGoddessPortrait", new Vector2(0.5f, 0.5f), blessingGoddessPortraitSize, blessingGoddessPortraitPosition, Color.white).GetComponent<Image>();
+        goddessPortrait.sprite = Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_goddess_portrait") ?? CreateGoddessPortraitSprite();
+        goddessPortrait.preserveAspect = true;
+        goddessPortrait.raycastTarget = false;
+        goddessPortrait.transform.SetAsLastSibling();
 
         int selectedIndex = -1;
         Image[] cardImages = new Image[choices.Length];
@@ -756,7 +967,7 @@ public class GameFlowManager : MonoBehaviour
         for (int i = 0; i < choices.Length; i++)
         {
             int capturedIndex = i;
-            GameObject card = CreateButtonObject(safeRoomPanel, string.Empty, new Vector2(1f, 0.5f), blessingCardSize, () =>
+            GameObject card = CreateButtonObject(safeRoomPanel, string.Empty, new Vector2(0.5f, 0.5f), blessingCardSize, () =>
             {
                 selectedIndex = capturedIndex;
                 for (int cardIndex = 0; cardIndex < cardImages.Length; cardIndex++)
@@ -764,6 +975,7 @@ public class GameFlowManager : MonoBehaviour
                     if (cardImages[cardIndex] != null)
                     {
                         cardImages[cardIndex].sprite = GetBlessingCardSprite(choices[cardIndex].rarity, cardIndex == selectedIndex);
+                        cardImages[cardIndex].type = Image.Type.Sliced;
                         cardImages[cardIndex].color = Color.white;
                     }
 
@@ -789,12 +1001,12 @@ public class GameFlowManager : MonoBehaviour
             selectionOutlines[i] = CreateThickSelectionOutline(cardRect);
             selectionOutlines[i].enabled = false;
 
-            Text cardTitle = CreateLabel(cardRect, choices[i].title, 28, new Vector2(0.5f, 0.68f), new Vector2(570f, 42f));
+            Text cardTitle = CreateLabel(cardRect, choices[i].title, 24, new Vector2(0.5f, 0.66f), blessingCardTitleSize);
             cardTitle.rectTransform.pivot = new Vector2(0f, 0.5f);
             cardTitle.rectTransform.anchoredPosition = blessingCardTextOffset;
             cardTitle.alignment = TextAnchor.MiddleLeft;
             cardTitle.color = new Color(1f, 0.88f, 0.56f, 1f);
-            Text cardDesc = CreateLabel(cardRect, choices[i].description, 20, new Vector2(0.5f, 0.34f), new Vector2(620f, 64f));
+            Text cardDesc = CreateLabel(cardRect, choices[i].description, 17, new Vector2(0.5f, 0.30f), blessingCardDescriptionSize);
             cardDesc.rectTransform.pivot = new Vector2(0f, 0.5f);
             cardDesc.rectTransform.anchoredPosition = blessingCardTextOffset;
             cardDesc.alignment = TextAnchor.MiddleLeft;
@@ -802,7 +1014,7 @@ public class GameFlowManager : MonoBehaviour
             CreateTrackedCardIcon(cardRect, i);
         }
 
-        GameObject confirmObject = CreateButtonObject(safeRoomPanel, "确认祝福", new Vector2(1f, 0f), new Vector2(180f, 48f), () =>
+        GameObject confirmObject = CreateButtonObject(safeRoomPanel, "确认祝福", new Vector2(0.5f, 0.5f), new Vector2(180f, 48f), () =>
         {
             if (selectedIndex >= 0 && selectedIndex < choices.Length)
             {
@@ -816,7 +1028,7 @@ public class GameFlowManager : MonoBehaviour
         ApplySafeRoomButtonSprite(confirmObject);
         safeRoomPanelButtons.Add(confirmObject);
 
-        GameObject cancelObject = CreateButtonObject(safeRoomPanel, "离开", new Vector2(1f, 0f), new Vector2(140f, 48f), HideSafeRoomPanel);
+        GameObject cancelObject = CreateButtonObject(safeRoomPanel, "离开", new Vector2(0.5f, 0.5f), new Vector2(140f, 48f), HideSafeRoomPanel);
         cancelObject.GetComponent<RectTransform>().anchoredPosition = blessingCancelButtonPosition;
         ApplySafeRoomButtonSprite(cancelObject);
         safeRoomPanelButtons.Add(cancelObject);
@@ -839,30 +1051,27 @@ public class GameFlowManager : MonoBehaviour
         safeRoomPanelBody.text = string.Empty;
         ClearSafeRoomPanelButtons();
 
-        Image shopPanel = CreatePanelImage("ShopPanelMockBackground", new Vector2(0.5f, 0.5f), new Vector2(520f, 620f), new Vector2(-30f, 0f), Color.white).GetComponent<Image>();
-        shopPanel.sprite = Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_shop_panel_from_mock");
+        Image shopPanel = CreatePanelImage("ShopPanelMockBackground", new Vector2(0.5f, 0.5f), shopPanelSize, shopPanelPosition, Color.white).GetComponent<Image>();
+        shopPanel.sprite = Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_shop_board_panel_comic") ?? Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_shop_panel_comic") ?? Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_shop_panel_from_mock");
         shopPanel.type = Image.Type.Sliced;
         shopPanel.transform.SetAsFirstSibling();
 
-        CreatePanelImage("ShopMerchantPortrait", new Vector2(0f, 0.5f), new Vector2(260f, 420f), new Vector2(170f, 30f), Color.clear).GetComponent<Image>().sprite = Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_merchant_portrait") ?? CreateMerchantPortraitSprite();
-        Image speechBubble = CreatePanelImage("MerchantSpeechBubble", new Vector2(0f, 0f), new Vector2(310f, 106f), new Vector2(186f, 78f), Color.white).GetComponent<Image>();
-        speechBubble.sprite = Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_shop_speech_mock") ?? Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_speech_bubble") ?? CreateRoundRectSprite(new Color(0.88f, 0.80f, 0.62f, 1f), new Color(0.28f, 0.20f, 0.12f, 1f));
-        speechBubble.type = Image.Type.Sliced;
-        Text speech = CreateTrackedLabel("MerchantSpeech", "看看吧，活着回来的人总该带点东西走。", 18, new Vector2(0f, 0f), new Vector2(286f, 84f), new Vector2(186f, 78f));
+        Text speech = CreateTrackedLabel("MerchantSpeech", "看看吧，活着回来的人总该带点东西走。", 17, new Vector2(0.5f, 0.5f), shopSpeechSize, shopSpeechPosition);
         speech.alignment = TextAnchor.MiddleCenter;
         speech.color = new Color(0.08f, 0.07f, 0.05f, 1f);
         speech.transform.SetAsLastSibling();
 
         Image[] shopSlotImages = new Image[goods.Length];
-        Sprite goodsSlotSprite = Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_shop_slot_mock") ?? Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_goods_slot");
-        Sprite goodsSlotSelectedSprite = Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_goods_slot_selected");
+        int selectedShopIndex = -1;
+        Sprite goodsSlotSprite = Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_shop_slot_comic") ?? Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_shop_slot_mock") ?? Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_goods_slot");
+        Sprite goodsSlotSelectedSprite = Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_shop_slot_selected_comic") ?? Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_goods_slot_selected");
 
         for (int i = 0; i < goods.Length; i++)
         {
             ShopGoodsConfigDatabase.ShopGoodConfig good = goods[i];
             int capturedIndex = i;
-            Vector2 position = new Vector2(-150f + (i % 3) * 170f, 100f - (i / 3) * 154f);
-            GameObject slot = CreateButtonObject(safeRoomPanel, string.Empty, new Vector2(0.5f, 0.5f), new Vector2(150f, 130f), () =>
+            Vector2 position = shopSlotStartPosition + new Vector2((i % 3) * shopSlotSpacing.x, -(i / 3) * shopSlotSpacing.y);
+            GameObject slot = CreateButtonObject(safeRoomPanel, string.Empty, new Vector2(0.5f, 0.5f), shopSlotSize, () =>
             {
                 ShopGoodsConfigDatabase.ShopGoodConfig selected = goods[capturedIndex];
                 if (selected == null)
@@ -870,6 +1079,7 @@ public class GameFlowManager : MonoBehaviour
                     return;
                 }
 
+                selectedShopIndex = capturedIndex;
                 for (int slotIndex = 0; slotIndex < shopSlotImages.Length; slotIndex++)
                 {
                     if (shopSlotImages[slotIndex] != null)
@@ -895,20 +1105,53 @@ public class GameFlowManager : MonoBehaviour
             safeRoomPanelButtons.Add(slot);
 
             RectTransform slotRect = slot.GetComponent<RectTransform>();
-            Text nameLabel = CreateLabel(slotRect, good != null ? good.name : "空位", 18, new Vector2(0.5f, 0.74f), new Vector2(142f, 34f));
+            Text nameLabel = CreateLabel(slotRect, good != null ? good.name : "空位", 16, new Vector2(0.5f, 0.74f), new Vector2(130f, 34f));
             nameLabel.color = Color.white;
-            Text categoryLabel = CreateLabel(slotRect, good != null ? $"{good.category} / {good.rarity}" : string.Empty, 13, new Vector2(0.5f, 0.5f), new Vector2(136f, 24f));
+            Text categoryLabel = CreateLabel(slotRect, good != null ? $"{good.category} / {good.rarity}" : string.Empty, 12, new Vector2(0.5f, 0.5f), new Vector2(126f, 24f));
             categoryLabel.color = new Color(0.82f, 0.88f, 0.92f, 0.9f);
-            Text priceLabel = CreateLabel(slotRect, good != null ? $"{good.price} G" : string.Empty, 18, new Vector2(0.5f, 0.24f), new Vector2(136f, 30f));
+            Text priceLabel = CreateLabel(slotRect, good != null ? $"{good.price} G" : string.Empty, 17, new Vector2(0.5f, 0.24f), new Vector2(126f, 30f));
             priceLabel.color = new Color(1f, 0.86f, 0.35f, 1f);
         }
 
-        GameObject buyButton = CreateButtonObject(safeRoomPanel, "购买占位", new Vector2(1f, 0f), new Vector2(170f, 48f), () => Debug.Log("Shop purchase placeholder."));
-        buyButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(-212f, 58f);
+        GameObject buyButton = CreateButtonObject(safeRoomPanel, "购买", new Vector2(1f, 0f), new Vector2(170f, 48f), () =>
+        {
+            if (selectedShopIndex < 0 || selectedShopIndex >= goods.Length)
+            {
+                speech.text = "先选择一个商品。";
+                return;
+            }
+
+            if (observedInventory == null && playerInputManager != null)
+            {
+                ObserveInventory(EnsurePlayerInventory(playerInputManager.gameObject));
+            }
+
+            ShopGoodsConfigDatabase.ShopGoodConfig selected = goods[selectedShopIndex];
+            if (selected == null || observedInventory == null)
+            {
+                return;
+            }
+
+            if (!observedInventory.TrySpendGold(selected.price))
+            {
+                speech.text = "金币不够。";
+                return;
+            }
+
+            if (!observedInventory.TryAddShopGood(selected))
+            {
+                observedInventory.AddGold(selected.price);
+                speech.text = "背包已满。";
+                return;
+            }
+
+            speech.text = $"已购买：{selected.name}";
+        });
+        buyButton.GetComponent<RectTransform>().anchoredPosition = shopBuyButtonPosition;
         ApplySafeRoomButtonSprite(buyButton);
         safeRoomPanelButtons.Add(buyButton);
         GameObject closeButton = CreateButtonObject(safeRoomPanel, "关闭", new Vector2(1f, 0f), new Vector2(130f, 48f), HideSafeRoomPanel);
-        closeButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(-54f, 58f);
+        closeButton.GetComponent<RectTransform>().anchoredPosition = shopCloseButtonPosition;
         ApplySafeRoomButtonSprite(closeButton);
         safeRoomPanelButtons.Add(closeButton);
 
@@ -930,20 +1173,21 @@ public class GameFlowManager : MonoBehaviour
         safeRoomPanelBody.text = string.Empty;
         ClearSafeRoomPanelButtons();
 
-        Image taskPanel = CreatePanelImage("TaskPanelMockBackground", new Vector2(0.5f, 0.5f), new Vector2(420f, 620f), new Vector2(210f, 0f), Color.white).GetComponent<Image>();
-        taskPanel.sprite = Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_task_panel_from_mock");
+        Image taskPanel = CreatePanelImage("TaskPanelMockBackground", new Vector2(0.5f, 0.5f), taskPanelSize, taskPanelPosition, Color.white).GetComponent<Image>();
+        taskPanel.sprite = Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_task_board_panel_comic") ?? Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_task_detail_panel_comic") ?? Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_task_panel_from_mock");
         taskPanel.type = Image.Type.Sliced;
         taskPanel.transform.SetAsFirstSibling();
 
-        Text detailTitle = CreateTrackedLabel("TaskDetailTitle", string.Empty, 26, new Vector2(1f, 1f), new Vector2(560f, 44f), new Vector2(-314f, -112f));
+        Text detailTitle = CreateTrackedLabel("TaskDetailTitle", string.Empty, 24, new Vector2(0.5f, 0.5f), taskDetailTitleSize, taskDetailTitlePosition);
         detailTitle.alignment = TextAnchor.MiddleLeft;
         detailTitle.color = new Color(1f, 0.86f, 0.52f, 1f);
-        Text detailBody = CreateTrackedLabel("TaskDetailBody", string.Empty, 18, new Vector2(1f, 1f), new Vector2(560f, 290f), new Vector2(-314f, -284f));
+        Text detailBody = CreateTrackedLabel("TaskDetailBody", string.Empty, 17, new Vector2(0.5f, 0.5f), taskDetailBodySize, taskDetailBodyPosition);
         detailBody.alignment = TextAnchor.UpperLeft;
         detailBody.color = new Color(0.88f, 0.93f, 0.95f, 0.96f);
         Image[] taskButtonImages = new Image[tasks.Count];
-        Sprite taskTabSprite = Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_task_tab_mock") ?? Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_task_tab");
-        Sprite taskTabSelectedSprite = Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_task_tab_selected_mock") ?? Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_task_tab_selected");
+        Sprite taskTabSprite = Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_task_tab_comic") ?? Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_task_tab_mock") ?? Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_task_tab");
+        Sprite taskTabSelectedSprite = Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_task_tab_selected_comic") ?? Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_task_tab_selected_mock") ?? Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_task_tab_selected");
+        RectTransform taskListContent = CreateTaskListScrollContent();
 
         Action<int> showTask = taskIndex =>
         {
@@ -973,14 +1217,17 @@ public class GameFlowManager : MonoBehaviour
         {
             TaskConfigDatabase.TaskConfig task = tasks[i];
             int capturedIndex = i;
-            GameObject taskButton = CreateButtonObject(safeRoomPanel, task.name, new Vector2(0f, 1f), new Vector2(290f, 64f), () => showTask(capturedIndex));
-            taskButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(190f, -118f - i * 76f);
+            GameObject taskButton = CreateButtonObject(taskListContent, task.name, new Vector2(0.5f, 1f), taskButtonSize, () => showTask(capturedIndex));
+            RectTransform taskButtonRect = taskButton.GetComponent<RectTransform>();
+            taskButtonRect.pivot = new Vector2(0.5f, 1f);
+            taskButtonRect.anchoredPosition = new Vector2(0f, -i * taskButtonVerticalSpacing);
             taskButtonImages[i] = taskButton.GetComponent<Image>();
             taskButtonImages[i].sprite = taskTabSprite;
             taskButtonImages[i].type = Image.Type.Sliced;
             taskButtonImages[i].color = GetRarityColor(task.rarity);
-            safeRoomPanelButtons.Add(taskButton);
         }
+
+        taskListContent.sizeDelta = new Vector2(taskListContent.sizeDelta.x, Mathf.Max(taskListSize.y, tasks.Count * taskButtonVerticalSpacing));
 
         if (tasks.Count > 0)
         {
@@ -988,11 +1235,11 @@ public class GameFlowManager : MonoBehaviour
         }
 
         GameObject acceptButton = CreateButtonObject(safeRoomPanel, "接受占位", new Vector2(1f, 0f), new Vector2(170f, 48f), () => Debug.Log("Task accept placeholder."));
-        acceptButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(-212f, 58f);
+        acceptButton.GetComponent<RectTransform>().anchoredPosition = taskAcceptButtonPosition;
         ApplySafeRoomButtonSprite(acceptButton);
         safeRoomPanelButtons.Add(acceptButton);
         GameObject closeButton = CreateButtonObject(safeRoomPanel, "关闭", new Vector2(1f, 0f), new Vector2(130f, 48f), HideSafeRoomPanel);
-        closeButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(-54f, 58f);
+        closeButton.GetComponent<RectTransform>().anchoredPosition = taskCloseButtonPosition;
         ApplySafeRoomButtonSprite(closeButton);
         safeRoomPanelButtons.Add(closeButton);
 
@@ -1097,6 +1344,11 @@ public class GameFlowManager : MonoBehaviour
         {
             playerInputManager.canMove = !safeRoomModalOpen;
         }
+        SafeRoomManager safeRoomManager = FindObjectOfType<SafeRoomManager>();
+        if (safeRoomManager != null)
+        {
+            safeRoomManager.SetInteractionPromptsSuppressed(open);
+        }
         UnlockCursor();
     }
 
@@ -1113,7 +1365,7 @@ public class GameFlowManager : MonoBehaviour
             return;
         }
 
-        image.sprite = Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_button_normal_mock") ?? Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_button_normal") ?? Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_confirm_button");
+        image.sprite = Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_button_normal_comic") ?? Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_button_normal_mock") ?? Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_button_normal") ?? Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_confirm_button");
         image.type = Image.Type.Sliced;
         image.color = Color.white;
     }
@@ -1159,6 +1411,44 @@ public class GameFlowManager : MonoBehaviour
         label.rectTransform.anchoredPosition = anchoredPosition;
         safeRoomPanelButtons.Add(label.gameObject);
         return label;
+    }
+
+    private RectTransform CreateTaskListScrollContent()
+    {
+        GameObject scrollObject = new GameObject("TaskListScroll");
+        scrollObject.transform.SetParent(safeRoomPanel, false);
+        RectTransform scrollRectTransform = scrollObject.AddComponent<RectTransform>();
+        scrollRectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+        scrollRectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+        scrollRectTransform.sizeDelta = taskListSize;
+        scrollRectTransform.anchoredPosition = taskListPosition;
+        Image viewportImage = scrollObject.AddComponent<Image>();
+        viewportImage.color = new Color(0f, 0f, 0f, 0.01f);
+        Mask mask = scrollObject.AddComponent<Mask>();
+        mask.showMaskGraphic = false;
+
+        GameObject contentObject = new GameObject("TaskListContent");
+        contentObject.transform.SetParent(scrollObject.transform, false);
+        RectTransform contentRect = contentObject.AddComponent<RectTransform>();
+        contentRect.anchorMin = new Vector2(0f, 1f);
+        contentRect.anchorMax = new Vector2(1f, 1f);
+        contentRect.pivot = new Vector2(0.5f, 1f);
+        contentRect.offsetMin = Vector2.zero;
+        contentRect.offsetMax = Vector2.zero;
+        contentRect.anchoredPosition = Vector2.zero;
+        contentRect.sizeDelta = new Vector2(0f, taskListSize.y);
+
+        ScrollRect scroll = scrollObject.AddComponent<ScrollRect>();
+        scroll.content = contentRect;
+        scroll.viewport = scrollRectTransform;
+        scroll.horizontal = false;
+        scroll.vertical = true;
+        scroll.movementType = ScrollRect.MovementType.Clamped;
+        scroll.inertia = true;
+        scroll.scrollSensitivity = 32f;
+
+        safeRoomPanelButtons.Add(scrollObject);
+        return contentRect;
     }
 
     private GameObject CreatePanelImage(string name, Vector2 anchor, Vector2 dimensions, Vector2 anchoredPosition, Color color)
@@ -1440,6 +1730,10 @@ public class GameFlowManager : MonoBehaviour
         {
             ObservePlayerStats(playerInputManager.GetComponent<CharacterStats>());
         }
+        if (observedInventory == null && playerInputManager != null)
+        {
+            ObserveInventory(EnsurePlayerInventory(playerInputManager.gameObject));
+        }
 
         if (observedPlayerStats == null || healthBarFillRect == null || healthBarText == null || manaDiamonds == null || manaDiamondFills == null)
         {
@@ -1448,6 +1742,7 @@ public class GameFlowManager : MonoBehaviour
 
         RefreshHealthHud(observedPlayerStats.CurrentHealth, observedPlayerStats.maxHealth);
         RefreshManaHud(observedPlayerStats.CurrentMana, observedPlayerStats.maxMana);
+        RefreshGoldHud(observedInventory != null ? observedInventory.Gold : 0);
     }
 
     private void ObservePlayerStats(CharacterStats nextStats)
@@ -1487,6 +1782,48 @@ public class GameFlowManager : MonoBehaviour
         }
 
         return pool;
+    }
+
+    private PlayerInventory EnsurePlayerInventory(GameObject playerObject)
+    {
+        if (playerObject == null)
+        {
+            return null;
+        }
+
+        PlayerInventory inventory = playerObject.GetComponent<PlayerInventory>();
+        if (inventory == null)
+        {
+            inventory = playerObject.AddComponent<PlayerInventory>();
+        }
+
+        return inventory;
+    }
+
+    private void ObserveInventory(PlayerInventory nextInventory)
+    {
+        if (observedInventory == nextInventory)
+        {
+            RefreshGoldHud(observedInventory != null ? observedInventory.Gold : 0);
+            RefreshInventoryPanel();
+            return;
+        }
+
+        if (observedInventory != null)
+        {
+            observedInventory.OnGoldChanged -= RefreshGoldHud;
+            observedInventory.OnInventoryChanged -= RefreshInventoryPanel;
+        }
+
+        observedInventory = nextInventory;
+        if (observedInventory != null)
+        {
+            observedInventory.OnGoldChanged += RefreshGoldHud;
+            observedInventory.OnInventoryChanged += RefreshInventoryPanel;
+            RefreshGoldHud(observedInventory.Gold);
+        }
+
+        RefreshInventoryPanel();
     }
 
     private void ObservePlayerBuffPool(PlayerBuffPool nextPool)
@@ -1599,6 +1936,14 @@ public class GameFlowManager : MonoBehaviour
             manaDiamonds[i].color = new Color(0.04f, 0.14f, 0.22f, 0.72f);
             manaDiamondFills[i].fillAmount = fill;
             manaDiamondFills[i].enabled = fill > 0.001f;
+        }
+    }
+
+    private void RefreshGoldHud(int gold)
+    {
+        if (goldText != null)
+        {
+            goldText.text = $"G {Mathf.Max(0, gold)}";
         }
     }
 
