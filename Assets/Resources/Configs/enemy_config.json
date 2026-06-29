@@ -24,7 +24,7 @@
         "hostilityWeightCurve": "linear"
       },
       "behavior": {
-        "visionRange": 7,
+        "visionRange": 5,
         "stopDistance": 0.25,
         "meleeAttackRange": 0.72,
         "meleeAttackCooldown": 1.4,
@@ -69,7 +69,7 @@
         "hostilityWeightCurve": "linear"
       },
       "behavior": {
-        "visionRange": 20,
+        "visionRange": 10,
         "stopDistance": 0.25,
         "meleeAttackRange": 0.72,
         "meleeAttackCooldown": 1.4,
@@ -114,7 +114,7 @@
         "hostilityWeightCurve": "linear"
       },
       "behavior": {
-        "visionRange": 15,
+        "visionRange": 7,
         "stopDistance": 3.6,
         "meleeAttackRange": 0.72,
         "meleeAttackCooldown": 1.4,

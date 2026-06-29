@@ -69,6 +69,10 @@ public class CharacterStats : MonoBehaviour
         if (wasAlive && killed)
         {
             OnDeath?.Invoke(this);
+            if (GetComponent<PlayerInputManager>() != null)
+            {
+                TaskRunState.Existing?.NotifyPlayerDeath(transform.position);
+            }
         }
 
         return result;
@@ -87,11 +91,16 @@ public class CharacterStats : MonoBehaviour
         if (wasAlive && !IsAlive)
         {
             OnDeath?.Invoke(this);
+            if (GetComponent<PlayerInputManager>() != null)
+            {
+                TaskRunState.Existing?.NotifyPlayerDeath(transform.position);
+            }
         }
 
         bool dealtDamage = damage.finalDamage > 0f;
         HitResult result = new HitResult(true, dealtDamage, wasAlive && killed, damage.isCritical, damage.finalDamage, context.feedback);
         OnDamaged?.Invoke(context, result);
+        DirectorSignalBridge.NotifyPlayerDamaged(this, context, result);
         return result;
     }
 

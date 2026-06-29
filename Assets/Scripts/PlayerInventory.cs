@@ -182,6 +182,13 @@ public sealed class PlayerInventory : MonoBehaviour
                     case "unlockSkill":
                         used = true;
                         break;
+                    case "addBuff":
+                        used = true;
+                        break;
+                    case "addDebuff":
+                        DirectorSignalBridge.NotifyItemEffectUsed(transform, effect);
+                        used = true;
+                        break;
                 }
             }
         }

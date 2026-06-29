@@ -259,7 +259,7 @@ public sealed class SpawnDenController : MonoBehaviour, IDamageable
         }
 
         int effectiveGlobalLimit = GetEffectiveGlobalLimit(activeDirector);
-        return EnemyRegistry.LivingCount < effectiveGlobalLimit;
+        return EnemyRegistry.LivingCount < effectiveGlobalLimit && activeDirector.IsSpawnAllowed(transform.position);
     }
 
     private bool TrySpawnEnemy(WorldHostilityDirector director, string archetypeOverride)
@@ -430,6 +430,7 @@ public sealed class SpawnDenController : MonoBehaviour, IDamageable
         model.state = SpawnDenState.Destroyed;
         model.spawnTimer = 0f;
         view?.ShowDestroyed();
+        WorldHostilityDirector.Current.Notify(new DirectorEvent(DirectorEventType.SpawnDenDestroyed, transform.position, 1f, Id));
     }
 
     private float GetCurrentSpawnInterval(WorldHostilityDirector director)

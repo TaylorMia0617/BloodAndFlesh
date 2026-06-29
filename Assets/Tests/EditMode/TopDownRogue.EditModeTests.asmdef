@@ -2,7 +2,7 @@
     "name": "TopDownRogue.EditModeTests",
     "rootNamespace": "",
     "references": [
-        "Assembly-CSharp"
+        "TopDownRogue.Runtime"
     ],
     "includePlatforms": [
         "Editor"

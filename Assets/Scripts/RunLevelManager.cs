@@ -87,6 +87,7 @@ public class RunLevelManager : MonoBehaviour
 
     public void AdvanceStage()
     {
+        TaskRunState.Existing?.NotifyStageEnded(lastMapReturnPosition);
         stage++;
         if (stage > Mathf.Max(1, stagesPerChapter))
         {
@@ -103,12 +104,14 @@ public class RunLevelManager : MonoBehaviour
     {
         lastMapReturnPosition = mapReturnPosition;
         phase = RunPhase.SafeRoom;
+        WorldHostilityDirector.Current.Notify(new DirectorEvent(DirectorEventType.PlayerEnteredSafehouse, mapReturnPosition));
     }
 
     public void ExitSafeRoom()
     {
         phase = RunPhase.RunMap;
         RefreshWorldHostilityPreview();
+        WorldHostilityDirector.Current.Notify(new DirectorEvent(DirectorEventType.PlayerExitedSafehouse, lastMapReturnPosition));
     }
 
     private void RefreshWorldHostilityPreview()

@@ -1,8 +1,12 @@
 using System.Collections.Generic;
+using Unity.Profiling;
 using UnityEngine;
 
 public class GridRouteMapGenerator : MonoBehaviour
 {
+    private const string DefaultVisualCatalogResourcePath = "Configs/SemanticWorldVisualCatalog";
+    private static readonly ProfilerMarker GenerateMarker = new ProfilerMarker("SemanticWorld.GenerateMap");
+
     [Header("Grid")]
     [SerializeField] private int width = 100;
     [SerializeField] private int height = 80;
@@ -10,6 +14,9 @@ public class GridRouteMapGenerator : MonoBehaviour
     [SerializeField] private int corridorHalfWidth = 2;
     [SerializeField] private int branchCount = 18;
     [SerializeField] private int roomCount = 12;
+    [SerializeField] private int fixedSeed = -1;
+    [SerializeField] private bool useTilemapTerrain;
+    [SerializeField] private SemanticWorldVisualCatalog visualCatalog;
 
     [Header("Sprites")]
     [SerializeField] private Sprite roadSprite;
@@ -35,6 +42,9 @@ public class GridRouteMapGenerator : MonoBehaviour
     private Vector3 playerSpawnPosition;
     private bool[,] visionBlockers;
     private StageConfig currentStageConfig;
+    private MapData currentMapData;
+    private SemanticWorldVisualCatalog cachedDefaultVisualCatalog;
+    private string cachedDefaultVisualCatalogPath;
 
     public Vector3 PlayerSpawnPosition => playerSpawnPosition;
     public int Width => width;
@@ -44,6 +54,10 @@ public class GridRouteMapGenerator : MonoBehaviour
     public Vector2 WorldSize => new Vector2(width * cellSize, height * cellSize);
     public IReadOnlyList<Vector3> EnemySpawnPositions => enemySpawnPositions;
     public IReadOnlyList<SpawnDenController> SpawnDens => spawnDens;
+    public MapData CurrentMapData => currentMapData;
+    public StageConfig CurrentStageConfig => currentStageConfig;
+    public float LastGenerationMilliseconds { get; private set; }
+    public SemanticMapValidationReport LastValidationReport { get; private set; }
 
     private void Awake()
     {
@@ -52,63 +66,127 @@ public class GridRouteMapGenerator : MonoBehaviour
 
     public void GenerateMap()
     {
-        ApplyStageConfig();
-        LoadDefaultSprites();
-        ClearMap();
-        EnemyRegistry.Clear();
-        currentPath.Clear();
-        enemySpawnCells.Clear();
-        enemySpawnPositions.Clear();
-        spawnDens.Clear();
-
-        bool[,] road = BuildCorridorNetwork();
-        visionBlockers = new bool[width, height];
-        Vector2Int start = currentPath[0];
-        Vector2Int end = currentPath[currentPath.Count - 1];
-        playerSpawnPosition = GridToWorld(start) + Vector3.right * (cellSize * 3f);
-
-        for (int y = 0; y < height; y++)
+        if (fixedSeed >= 0)
         {
-            for (int x = 0; x < width; x++)
-            {
-                Vector2Int cell = new Vector2Int(x, y);
-                bool isBorder = x == 0 || y == 0 || x == width - 1 || y == height - 1;
-                bool isPath = road[x, y];
-                bool isSafeRoom = cell == start || cell == end;
-
-                if (isSafeRoom)
-                {
-                    visionBlockers[x, y] = false;
-                    CreateTile($"SafeRoom_{x}_{y}", safeRoomSprite, cell, 1, false);
-                    continue;
-                }
-
-                if (isPath)
-                {
-                    visionBlockers[x, y] = false;
-                    CreateTile($"Road_{x}_{y}", roadSprite, cell, 0, false);
-                    continue;
-                }
-
-                if (isBorder || !isPath)
-                {
-                    visionBlockers[x, y] = true;
-                    CreateTile($"Obstacle_{x}_{y}", wallSprite, cell, 5, true);
-                }
-                else
-                {
-                    visionBlockers[x, y] = false;
-                    CreateTile($"Ground_{x}_{y}", dangerSprite, cell, 0, false);
-                }
-            }
+            GenerateMap(fixedSeed);
+            return;
         }
 
-        CreateSafeDoor("EntryDoor", start + Vector2Int.right, SafeRoomPortal.PortalMode.DisabledVisualDoor);
-        CreateSafeDoor("ExitDoor", end + Vector2Int.left, SafeRoomPortal.PortalMode.DungeonExitToSafeRoom);
-        BuildEnemySpawnCells(road);
-        CreateSpawnDens();
-        CreateFixedScouts(road);
-        StopLegacyWorldHostilitySpawner();
+        GenerateMapInternal(null);
+    }
+
+    public void GenerateMap(int seed)
+    {
+        GenerateMapInternal(seed);
+    }
+
+    private void GenerateMapInternal(int? seed)
+    {
+        using ProfilerMarker.AutoScope scope = GenerateMarker.Auto();
+        Random.State previousRandomState = Random.state;
+        System.Diagnostics.Stopwatch stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        if (seed.HasValue)
+        {
+            Random.InitState(seed.Value);
+        }
+
+        try
+        {
+            ApplyStageConfig();
+            LoadDefaultSprites();
+            ClearMap();
+            EnemyRegistry.Clear();
+            currentPath.Clear();
+            enemySpawnCells.Clear();
+            enemySpawnPositions.Clear();
+            spawnDens.Clear();
+
+            bool[,] road = BuildCorridorNetwork();
+            WorldHostilityDirector.ResetRuntime(currentStageConfig);
+            WorldHostilityDirector.Current.Notify(new DirectorEvent(DirectorEventType.StageStarted, Vector2.zero));
+            WorldHostilityDirectorRunner.Ensure();
+            visionBlockers = new bool[width, height];
+            Vector2Int start = currentPath[0];
+            Vector2Int end = currentPath[currentPath.Count - 1];
+            playerSpawnPosition = GridToWorld(start) + Vector3.right * (cellSize * 3f);
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    Vector2Int cell = new Vector2Int(x, y);
+                    bool isBorder = x == 0 || y == 0 || x == width - 1 || y == height - 1;
+                    bool isPath = road[x, y];
+                    bool isSafeRoom = cell == start || cell == end;
+
+                    if (isSafeRoom)
+                    {
+                        visionBlockers[x, y] = false;
+                        if (!useTilemapTerrain)
+                        {
+                            CreateTile($"SafeRoom_{x}_{y}", safeRoomSprite, cell, 1, false);
+                        }
+
+                        continue;
+                    }
+
+                    if (isPath)
+                    {
+                        visionBlockers[x, y] = false;
+                        if (!useTilemapTerrain)
+                        {
+                            CreateTile($"Road_{x}_{y}", roadSprite, cell, 0, false);
+                        }
+
+                        continue;
+                    }
+
+                    if (isBorder || !isPath)
+                    {
+                        visionBlockers[x, y] = true;
+                        if (!useTilemapTerrain)
+                        {
+                            CreateTile($"Obstacle_{x}_{y}", wallSprite, cell, 5, true);
+                        }
+                    }
+                    else
+                    {
+                        visionBlockers[x, y] = false;
+                        if (!useTilemapTerrain)
+                        {
+                            CreateTile($"Ground_{x}_{y}", dangerSprite, cell, 0, false);
+                        }
+                    }
+                }
+            }
+
+            CreateSafeDoor("EntryDoor", start + Vector2Int.right, SafeRoomPortal.PortalMode.DisabledVisualDoor);
+            CreateSafeDoor("ExitDoor", end + Vector2Int.left, SafeRoomPortal.PortalMode.DungeonExitToSafeRoom);
+            BuildEnemySpawnCells(road);
+            currentMapData = BuildCurrentMapData(road, start, end, seed ?? 0);
+            LastValidationReport = SemanticMapValidator.Validate(currentMapData);
+            if (useTilemapTerrain)
+            {
+                EnsureTilemapRenderer().Render(currentMapData);
+            }
+
+            SemanticWorldView worldView = EnsureWorldView();
+            CombatAftermathSystem.Instance.Configure(this, worldView);
+            worldView.Render(currentMapData, CombatAftermathSystem.Instance.Grid);
+            EnsureDebugOverlay().RefreshMetrics();
+            CreateSpawnDens();
+            CreateFixedScouts(road);
+            StopLegacyWorldHostilitySpawner();
+        }
+        finally
+        {
+            stopwatch.Stop();
+            LastGenerationMilliseconds = (float)stopwatch.Elapsed.TotalMilliseconds;
+            if (seed.HasValue)
+            {
+                Random.state = previousRandomState;
+            }
+        }
     }
 
     private void ApplyStageConfig()
@@ -128,6 +206,10 @@ public class GridRouteMapGenerator : MonoBehaviour
         enemySpawnCount = Mathf.Max(0, currentStageConfig.initialEnemySpawnCount);
         enemySpawnMinDistanceFromPlayer = Mathf.Max(0f, currentStageConfig.enemySpawnMinDistanceFromPlayer);
         hostilitySpawnInterval = Mathf.Max(0.1f, currentStageConfig.hostilitySpawnInterval);
+        if (currentStageConfig.semanticUseTilemapTerrain >= 0)
+        {
+            useTilemapTerrain = currentStageConfig.semanticUseTilemapTerrain > 0;
+        }
 
         roadSprite = LoadSpriteOrKeep(currentStageConfig.roadSpriteResource, roadSprite);
         dangerSprite = LoadSpriteOrKeep(currentStageConfig.dangerSpriteResource, dangerSprite);
@@ -311,6 +393,47 @@ public class GridRouteMapGenerator : MonoBehaviour
                 }
             }
         }
+    }
+
+    private MapData BuildCurrentMapData(bool[,] road, Vector2Int start, Vector2Int end, int seed)
+    {
+        float baseHostility = currentStageConfig != null ? currentStageConfig.worldHostility : 0f;
+        MapData mapData = SemanticMapBuilder.BuildFromRoute(
+            width,
+            height,
+            cellSize,
+            road,
+            currentPath,
+            start,
+            end,
+            enemySpawnCells,
+            baseHostility,
+            seed);
+        SemanticPlacementSolver.PopulateDefaultPlacements(mapData, BuildPlacementSettings());
+        return mapData;
+    }
+
+    private SemanticPlacementSettings BuildPlacementSettings()
+    {
+        StageConfig stageConfig = currentStageConfig;
+        if (stageConfig == null)
+        {
+            return new SemanticPlacementSettings();
+        }
+
+        return new SemanticPlacementSettings
+        {
+            MaxSpawnDenBuildings = Mathf.Max(0, stageConfig.spawnDenCount),
+            MaxSupplyCaches = ResolveSemanticCount(stageConfig.semanticSupplyCacheCount, Mathf.Clamp(stageConfig.roomCount / 3, 2, 6)),
+            MaxResourceNodes = ResolveSemanticCount(stageConfig.semanticResourceNodeCount, Mathf.Clamp(stageConfig.roomCount + stageConfig.spawnDenCount, 4, 14)),
+            MinBuildingSpacing = Mathf.Max(3, stageConfig.corridorHalfWidth + 2),
+            SafehouseFootprintRadius = Mathf.Max(1, stageConfig.corridorHalfWidth)
+        };
+    }
+
+    private static int ResolveSemanticCount(int configuredValue, int fallback)
+    {
+        return configuredValue >= 0 ? configuredValue : Mathf.Max(0, fallback);
     }
 
     private bool HasAdjacentWall(bool[,] road, Vector2Int cell)
@@ -579,6 +702,69 @@ public class GridRouteMapGenerator : MonoBehaviour
         spawner?.StopSpawning();
     }
 
+    private SemanticWorldDebugOverlay EnsureDebugOverlay()
+    {
+        SemanticWorldDebugOverlay overlay = GetComponent<SemanticWorldDebugOverlay>();
+        if (overlay == null)
+        {
+            overlay = gameObject.AddComponent<SemanticWorldDebugOverlay>();
+        }
+
+        overlay.Configure(this);
+        return overlay;
+    }
+
+    private SemanticWorldView EnsureWorldView()
+    {
+        SemanticWorldView view = GetComponent<SemanticWorldView>();
+        if (view == null)
+        {
+            view = gameObject.AddComponent<SemanticWorldView>();
+        }
+
+        view.SetVisualCatalog(ResolveVisualCatalog());
+        return view;
+    }
+
+    private SemanticTilemapRenderer EnsureTilemapRenderer()
+    {
+        SemanticTilemapRenderer renderer = GetComponent<SemanticTilemapRenderer>();
+        if (renderer == null)
+        {
+            renderer = gameObject.AddComponent<SemanticTilemapRenderer>();
+        }
+
+        renderer.SetVisualCatalog(ResolveVisualCatalog());
+        return renderer;
+    }
+
+    private SemanticWorldVisualCatalog ResolveVisualCatalog()
+    {
+        if (visualCatalog != null)
+        {
+            return visualCatalog;
+        }
+
+        string resourcePath = ResolveVisualCatalogResourcePath();
+        if (cachedDefaultVisualCatalog == null || cachedDefaultVisualCatalogPath != resourcePath)
+        {
+            cachedDefaultVisualCatalogPath = resourcePath;
+            cachedDefaultVisualCatalog = Resources.Load<SemanticWorldVisualCatalog>(resourcePath);
+        }
+
+        return cachedDefaultVisualCatalog;
+    }
+
+    private string ResolveVisualCatalogResourcePath()
+    {
+        if (currentStageConfig != null && !string.IsNullOrEmpty(currentStageConfig.semanticVisualCatalogResource))
+        {
+            return currentStageConfig.semanticVisualCatalogResource;
+        }
+
+        return DefaultVisualCatalogResourcePath;
+    }
+
     private Transform FindPlayerTarget()
     {
         PlayerInputManager player = FindObjectOfType<PlayerInputManager>();
@@ -628,6 +814,11 @@ public class GridRouteMapGenerator : MonoBehaviour
 
     public bool BlocksVision(Vector2Int gridPosition)
     {
+        return SemanticVisionQuery.BlocksVision(this, gridPosition);
+    }
+
+    public bool LegacyBlocksVision(Vector2Int gridPosition)
+    {
         if (!IsGridInside(gridPosition))
         {
             return true;
@@ -640,7 +831,15 @@ public class GridRouteMapGenerator : MonoBehaviour
     {
         for (int i = transform.childCount - 1; i >= 0; i--)
         {
-            Destroy(transform.GetChild(i).gameObject);
+            GameObject child = transform.GetChild(i).gameObject;
+            if (Application.isPlaying)
+            {
+                Destroy(child);
+            }
+            else
+            {
+                DestroyImmediate(child);
+            }
         }
     }
 

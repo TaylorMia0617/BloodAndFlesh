@@ -9,32 +9,12 @@ public static class EnemyPerception
             return true;
         }
 
-        Vector2 direction = (to - from) / distance;
-        float blockedDistance = GetVisionBlockedDistance(mapGenerator, from, direction, distance, step);
-        return blockedDistance >= distance - Mathf.Max(0.04f, step * 1.5f);
+        return SemanticVisionQuery.HasLineOfSight(mapGenerator, from, to, distance, step);
     }
 
     public static float GetVisionBlockedDistance(GridRouteMapGenerator mapGenerator, Vector2 origin, Vector2 direction, float maxDistance, float step)
     {
-        if (mapGenerator == null || direction.sqrMagnitude <= 0.001f)
-        {
-            return maxDistance;
-        }
-
-        float safeStep = Mathf.Max(0.02f, step);
-        float distance = 0f;
-        Vector2 normalized = direction.normalized;
-        while (distance < maxDistance)
-        {
-            distance += safeStep;
-            Vector2 sample = origin + normalized * distance;
-            if (mapGenerator.BlocksVision(mapGenerator.WorldToGrid(sample)))
-            {
-                return Mathf.Max(0f, distance - safeStep);
-            }
-        }
-
-        return maxDistance;
+        return SemanticVisionQuery.GetBlockedDistance(mapGenerator, origin, direction, maxDistance, step);
     }
 
     public static bool IsVisionBlocker(Collider2D hit)

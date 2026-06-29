@@ -600,7 +600,7 @@ PlayerSettings:
   scriptingDefineSymbols:
     Android: UNITY_UOS_SECURITY
     Server: UNITY_UOS_SECURITY
-    Standalone: UNITY_UOS_SECURITY
+    Standalone: UNITY_UOS_SECURITY;TOPDOWNROGUE_ENABLE_CONTRACT_TESTS
     WebGL: UNITY_UOS_SECURITY
     iPhone: UNITY_UOS_SECURITY
   additionalCompilerArguments: {}

@@ -121,6 +121,7 @@
 -define:ENABLE_LEGACY_INPUT_MANAGER
 -define:TEXTCORE_FONT_ENGINE_1_5_OR_NEWER
 -define:UNITY_UOS_SECURITY
+-define:TOPDOWNROGUE_ENABLE_CONTRACT_TESTS
 -define:CSHARP_7_OR_LATER
 -define:CSHARP_7_3_OR_NEWER
 -r:"D:/Unity/Unity Hub/2022.3.23f1c1/Editor/Data/Managed/UnityEditor.Graphs.dll"

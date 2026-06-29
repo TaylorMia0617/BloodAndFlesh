@@ -1177,6 +1177,12 @@ public class SimpleEnemyAI : MonoBehaviour, ILocalFreezable
     private void BroadcastPlayerPosition(bool urgent)
     {
         EmitSignalWave(urgent);
+        if (urgent && archetype == EnemyArchetype.Sentinel)
+        {
+            TaskRunState.Existing?.NotifySentinelAlarm(transform.position);
+            WorldHostilityDirector.Current.Notify(new DirectorEvent(DirectorEventType.SentinelAlarm, transform.position, 1f, "sentinel_alarm"));
+        }
+
         EnemyRegistry.Prune();
         IReadOnlyList<SimpleEnemyAI> enemies = EnemyRegistry.Enemies;
         Vector2 current = transform.position;

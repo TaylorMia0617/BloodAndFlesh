@@ -101,6 +101,7 @@ public class PrototypeDamageable : MonoBehaviour, IDamageable
         {
             if (wasAlive && enemyAI != null)
             {
+                TaskRunState.Existing?.NotifyEnemyKilled(enemyAI.Archetype, transform.position);
                 DropTableResolver.ResolveEnemyDrops(EnemyConfigDatabase.Get(enemyAI.Archetype), transform.position);
             }
 

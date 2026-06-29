@@ -1,8 +1,12 @@
+using Unity.Profiling;
 using UnityEngine;
 
 [RequireComponent(typeof(Camera))]
 public class PlayerVisionMask : MonoBehaviour
 {
+    private static readonly ProfilerMarker RayTextureMarker = new ProfilerMarker("SemanticWorld.Vision.UpdateRayTexture");
+    private static readonly ProfilerMarker RenderMarker = new ProfilerMarker("SemanticWorld.Vision.RenderMask");
+
     [SerializeField] private Transform target;
     [SerializeField] private GridRouteMapGenerator mapGenerator;
     [SerializeField] private float visionRadius = 5f;
@@ -18,6 +22,7 @@ public class PlayerVisionMask : MonoBehaviour
     private Material maskMaterial;
     private Texture2D rayDistanceTexture;
     private Color[] rayDistancePixels;
+    private VisionRevealMap revealMap;
     private float healthRatio = 1f;
     private float nextRayTextureUpdateTime;
     private Vector2 lastRayTextureOrigin;
@@ -29,10 +34,12 @@ public class PlayerVisionMask : MonoBehaviour
         targetCamera.backgroundColor = Color.black;
         EnsureMaterial();
         ResolveMapGenerator();
+        EnsureRevealMap();
     }
 
     private void OnRenderImage(RenderTexture source, RenderTexture destination)
     {
+        using ProfilerMarker.AutoScope scope = RenderMarker.Auto();
         if (maskMaterial == null || target == null || targetCamera == null)
         {
             Graphics.Blit(source, destination);
@@ -40,6 +47,7 @@ public class PlayerVisionMask : MonoBehaviour
         }
 
         ResolveMapGenerator();
+        EnsureRevealMap();
         UpdateRayDistanceTextureIfNeeded();
         maskMaterial.SetVector("_PlayerPosition", new Vector4(target.position.x, target.position.y, 0f, 0f));
         maskMaterial.SetVector("_CameraCenter", new Vector4(targetCamera.transform.position.x, targetCamera.transform.position.y, 0f, 0f));
@@ -70,8 +78,11 @@ public class PlayerVisionMask : MonoBehaviour
     public void SetMapGenerator(GridRouteMapGenerator newMapGenerator)
     {
         mapGenerator = newMapGenerator;
+        EnsureRevealMap();
         rayTextureDirty = true;
     }
+
+    public VisionRevealMap RevealMap => revealMap;
 
     public void SetHealthRatio(float ratio)
     {
@@ -127,7 +138,14 @@ public class PlayerVisionMask : MonoBehaviour
 
     private void UpdateRayDistanceTexture(Vector2 origin)
     {
+        using ProfilerMarker.AutoScope scope = RayTextureMarker.Auto();
         EnsureRayDistanceTexture();
+        EnsureRevealMap();
+        revealMap?.BeginFrame();
+        if (mapGenerator != null)
+        {
+            revealMap?.MarkVisible(mapGenerator.WorldToGrid(origin));
+        }
 
         float maxDistance = visionRadius + feather;
         for (int i = 0; i < rayCount; i++)
@@ -175,7 +193,8 @@ public class PlayerVisionMask : MonoBehaviour
             distance += step;
             Vector2 sample = origin + direction * distance;
             Vector2Int cell = mapGenerator.WorldToGrid(sample);
-            if (mapGenerator.BlocksVision(cell))
+            revealMap?.MarkVisible(cell);
+            if (SemanticVisionQuery.BlocksVision(mapGenerator, cell))
             {
                 return distance;
             }
@@ -188,5 +207,18 @@ public class PlayerVisionMask : MonoBehaviour
     {
         float missingPercent = (1f - healthRatio) * 100f;
         return Mathf.Clamp(missingPercent * lowHealthDarknessPerMissingPercent, 0f, maxHealthDarkness);
+    }
+
+    private void EnsureRevealMap()
+    {
+        if (mapGenerator == null)
+        {
+            return;
+        }
+
+        if (revealMap == null || revealMap.Width != mapGenerator.Width || revealMap.Height != mapGenerator.Height)
+        {
+            revealMap = new VisionRevealMap(mapGenerator.Width, mapGenerator.Height);
+        }
     }
 }

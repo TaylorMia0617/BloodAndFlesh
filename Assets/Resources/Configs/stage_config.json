@@ -19,7 +19,7 @@
       "enemySpawnMinDistanceFromPlayer": 12.0,
       "enemyBudget": 30,
       "hostilitySpawnInterval": 3.5,
-      "spawnDenCount": 6,
+      "spawnDenCount": 4,
       "spawnDenPoolId": "default",
       "allowDuplicateSpawnDens": true,
       "spawnDenWeightMultiplier": 1.0,
@@ -41,7 +41,9 @@
           "summonDenSearchRadius": 24.0
         }
       ],
-      "worldHostility": 1.0
+      "worldHostility": 1.0,
+      "semanticVisualCatalogResource": "Configs/SemanticWorldVisualCatalog",
+      "semanticUseTilemapTerrain": -1
     },
     {
       "chapter": 1,
@@ -84,7 +86,9 @@
           "summonDenSearchRadius": 26.0
         }
       ],
-      "worldHostility": 1.1
+      "worldHostility": 1.1,
+      "semanticVisualCatalogResource": "Configs/SemanticWorldVisualCatalog",
+      "semanticUseTilemapTerrain": -1
     },
     {
       "chapter": 1,
@@ -127,7 +131,9 @@
           "summonDenSearchRadius": 28.0
         }
       ],
-      "worldHostility": 1.2
+      "worldHostility": 1.2,
+      "semanticVisualCatalogResource": "Configs/SemanticWorldVisualCatalog",
+      "semanticUseTilemapTerrain": -1
     }
   ]
 }

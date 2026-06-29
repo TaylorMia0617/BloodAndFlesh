@@ -35,6 +35,15 @@ public sealed class StageConfig
     public float spawnDenLevelBias;
     public FixedScoutConfig[] fixedScouts = Array.Empty<FixedScoutConfig>();
     public float worldHostility = 1f;
+    public string semanticVisualCatalogResource = "Configs/SemanticWorldVisualCatalog";
+    public int semanticUseTilemapTerrain = -1;
+    public int semanticSupplyCacheCount = -1;
+    public int semanticResourceNodeCount = -1;
+    public int semanticMaxBuildings = -1;
+    public int semanticMaxResidues = -1;
+    public int semanticMaxPooledResidues = -1;
+    public int semanticMaxLivingEnemies = -1;
+    public float semanticMaxRawHostility = -1f;
 }
 
 [Serializable]

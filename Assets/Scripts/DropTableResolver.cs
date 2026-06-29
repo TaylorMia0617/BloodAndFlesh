@@ -36,6 +36,8 @@ public static class DropTableResolver
             if (IsGold(drop))
             {
                 inventory.AddGold(amount);
+                TaskRunState.Existing?.NotifyItemCollected(drop.id, amount, deathPosition);
+                DirectorSignalBridge.NotifyLootAccepted("currency", drop.id, drop.rarity, amount, deathPosition);
                 continue;
             }
 
@@ -47,7 +49,11 @@ public static class DropTableResolver
             if (!inventory.TryAddItem(item))
             {
                 Debug.LogWarning($"Inventory full. Dropped {drop.id} x{amount} from {enemyConfig.displayName} could not be collected.");
+                continue;
             }
+
+            DirectorSignalBridge.NotifyLootAccepted(item.category, item.id, item.rarity, amount, deathPosition);
+            TaskRunState.Existing?.NotifyItemCollected(item.id, amount, deathPosition);
         }
     }
 

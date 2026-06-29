@@ -1,0 +1,101 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5d5f79ea1dbf4d04aa08ba8ff227d8aa, type: 3}
+  m_Name: SemanticWorldVisualCatalog
+  m_EditorClassIdentifier: 
+  buildings:
+  - Kind: 0
+    Sprite: {fileID: 21300000, guid: 14e9cadcee514de8a5f69c34455e455d, type: 3}
+    Prefab: {fileID: 0}
+    Scale: 1.25
+    SortingOrderOffset: 0
+  - Kind: 1
+    Sprite: {fileID: 21300000, guid: 32ea639776cb433a87b1e00cba128fb2, type: 3}
+    Prefab: {fileID: 0}
+    Scale: 1.25
+    SortingOrderOffset: 1
+  - Kind: 2
+    Sprite: {fileID: 21300000, guid: cd7eb4a00b344ae8af2d51463d771da7, type: 3}
+    Prefab: {fileID: 0}
+    Scale: 1.1
+    SortingOrderOffset: 2
+  - Kind: 4
+    Sprite: {fileID: 21300000, guid: aa203f4b3dfa400781a2b3e90b1cdce1, type: 3}
+    Prefab: {fileID: 0}
+    Scale: 0.9
+    SortingOrderOffset: 1
+  - Kind: 5
+    Sprite: {fileID: 21300000, guid: 85e725819a284caca730ac18b40c2728, type: 3}
+    Prefab: {fileID: 0}
+    Scale: 1.1
+    SortingOrderOffset: 1
+  - Kind: 7
+    Sprite: {fileID: 21300000, guid: a05b71b383da42fdb50b4840e868e93a, type: 3}
+    Prefab: {fileID: 0}
+    Scale: 1
+    SortingOrderOffset: 0
+  resources:
+  - Type: 1
+    Sprite: {fileID: 21300000, guid: d271062f61894b97b092177e337a0160, type: 3}
+    Prefab: {fileID: 0}
+    Scale: 0.55
+    SortingOrderOffset: 0
+  - Type: 2
+    Sprite: {fileID: 21300000, guid: 24b471b9d49442fc803e08732f2db7d1, type: 3}
+    Prefab: {fileID: 0}
+    Scale: 0.55
+    SortingOrderOffset: 0
+  - Type: 3
+    Sprite: {fileID: 21300000, guid: 24b471b9d49442fc803e08732f2db7d1, type: 3}
+    Prefab: {fileID: 0}
+    Scale: 0.72
+    SortingOrderOffset: 1
+  - Type: 0
+    Sprite: {fileID: 21300000, guid: 2bfa6dc2ca67401fbba752b57aa52718, type: 3}
+    Prefab: {fileID: 0}
+    Scale: 0.65
+    SortingOrderOffset: 0
+  residues:
+  - Type: 0
+    Sprite: {fileID: 21300000, guid: c5e4bf9a57ba4f98b4dd2262da3bb12e, type: 3}
+    Prefab: {fileID: 0}
+    Scale: 0.7
+    SortingOrderOffset: 0
+  - Type: 1
+    Sprite: {fileID: 21300000, guid: c5e4bf9a57ba4f98b4dd2262da3bb12e, type: 3}
+    Prefab: {fileID: 0}
+    Scale: 1.1
+    SortingOrderOffset: 0
+  - Type: 3
+    Sprite: {fileID: 21300000, guid: ae728c51d42143a2b50dc5c492832d94, type: 3}
+    Prefab: {fileID: 0}
+    Scale: 0.85
+    SortingOrderOffset: 0
+  - Type: 2
+    Sprite: {fileID: 21300000, guid: a2b55d3c6e8245339e0e8eefb09b42c2, type: 3}
+    Prefab: {fileID: 0}
+    Scale: 0.9
+    SortingOrderOffset: 0
+  - Type: 4
+    Sprite: {fileID: 21300000, guid: a7c6d7994696418d99d8dab09ca1f169, type: 3}
+    Prefab: {fileID: 0}
+    Scale: 0.6
+    SortingOrderOffset: 0
+  - Type: 5
+    Sprite: {fileID: 21300000, guid: cf95308b86444068a66b776c1ca351f7, type: 3}
+    Prefab: {fileID: 0}
+    Scale: 0.65
+    SortingOrderOffset: 0
+  groundTileSprite: {fileID: 21300000, guid: cf95308b86444068a66b776c1ca351f7, type: 3}
+  routeTileSprite: {fileID: 21300000, guid: ba9f14af48614f99bd2d69b12472f3e2, type: 3}
+  wallTileSprite: {fileID: 21300000, guid: a7c6d7994696418d99d8dab09ca1f169, type: 3}
+  safehouseTileSprite: {fileID: 21300000, guid: e3d4978036834bc499048f9b6d0447e7, type: 3}

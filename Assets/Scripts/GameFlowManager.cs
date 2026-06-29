@@ -1188,10 +1188,12 @@ public class GameFlowManager : MonoBehaviour
         Sprite taskTabSprite = Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_task_tab_comic") ?? Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_task_tab_mock") ?? Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_task_tab");
         Sprite taskTabSelectedSprite = Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_task_tab_selected_comic") ?? Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_task_tab_selected_mock") ?? Resources.Load<Sprite>("Arts/UI/SafeHouse/ui_task_tab_selected");
         RectTransform taskListContent = CreateTaskListScrollContent();
+        TaskConfigDatabase.TaskConfig selectedTask = null;
 
         Action<int> showTask = taskIndex =>
         {
             TaskConfigDatabase.TaskConfig task = taskIndex >= 0 && taskIndex < tasks.Count ? tasks[taskIndex] : null;
+            selectedTask = task;
             if (task == null)
             {
                 detailTitle.text = "暂无任务";
@@ -1234,7 +1236,14 @@ public class GameFlowManager : MonoBehaviour
             showTask(0);
         }
 
-        GameObject acceptButton = CreateButtonObject(safeRoomPanel, "接受占位", new Vector2(1f, 0f), new Vector2(170f, 48f), () => Debug.Log("Task accept placeholder."));
+        GameObject acceptButton = CreateButtonObject(safeRoomPanel, "接受", new Vector2(1f, 0f), new Vector2(170f, 48f), () =>
+        {
+            if (TaskRunState.Current.AcceptTask(selectedTask))
+            {
+                Debug.Log($"Accepted task: {selectedTask.id}");
+                HideSafeRoomPanel();
+            }
+        });
         acceptButton.GetComponent<RectTransform>().anchoredPosition = taskAcceptButtonPosition;
         ApplySafeRoomButtonSprite(acceptButton);
         safeRoomPanelButtons.Add(acceptButton);
